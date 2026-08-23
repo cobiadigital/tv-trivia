@@ -58,6 +58,17 @@ body {
   font-size: 0.9rem;
   letter-spacing: 0.1em;
   color: var(--dim);
+  text-align: right;
+}
+
+/* The last key the page actually received. Blank until something arrives, so
+   it costs nothing until it is the thing you need. */
+.lastkey {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  opacity: 0.6;
 }
 
 /* ---------------------------------------------------------------- headings */

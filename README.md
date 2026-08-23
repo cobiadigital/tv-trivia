@@ -68,6 +68,35 @@ Open the deployed URL in the TV browser. Everything maps to the D-pad:
 Coloured remote buttons are deliberately unused: their key codes vary wildly
 across Tizen, webOS, Fire TV and Android TV.
 
+### Number keys
+
+Every screen with a list on it also takes a number as a direct shortcut:
+
+| Screen | Number |
+|---|---|
+| Player count | 2, 3 or 4 picks it outright |
+| Category draft | vetoes the *n*th category |
+| Wager | the number **is** the wager — press 3 to bet 3 |
+| Question | 1–4 locks A–D, ignored for options not yet revealed |
+| Steal | 1–4 steals that option |
+| Final wager | digits type the number, so 23 is two presses; 0 clears |
+| Sudden death | picks the winner |
+
+A number commits immediately rather than selecting first. Unlike a stray tap or
+a nudged pointer, pressing 3 is unambiguous — and Back undoes it.
+
+This exists because of the **LG Magic Remote**, whose D-pad drives an on-screen
+pointer rather than sending arrow keys: webOS consumes the arrows before the
+page sees them. Pointing and clicking works (see *Mouse and touch*), but if the
+number buttons reach the page they are the faster way to play, and on a remote
+whose arrows never arrive they may be the only keys that do.
+
+Whether a given set delivers digits to page content is not something this
+repository can answer. The title screen shows the last key the page actually
+received, blank until something arrives — press a button and it either names the
+key and its code or it does not appear at all. There is no console on a
+television, so the screen has to answer the question itself.
+
 ### Entering names
 
 Setup uses a real `<input type="text">`, focused on arrival. Every TV browser

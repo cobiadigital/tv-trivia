@@ -23,6 +23,10 @@
 - [x] Back undoes anything, including a misjudgment
 - [x] Mouse and touch as a secondary input, with the hint bar doubling as the
       touch control bar and a two-tap select-then-commit on every target
+- [x] Number keys as a direct shortcut on every screen with a list, for remotes
+      whose D-pad drives a pointer instead of sending arrow keys
+- [x] A last-key readout on the title screen, so a television can say which
+      keys it actually delivers
 - [x] Names typed into a real text field, so the TV's own keyboard does the work
 - [x] Layout that adapts on phones: an app shell with its own scrolling content
       region, safe-area insets, and a control bar that cannot overlap content

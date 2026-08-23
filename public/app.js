@@ -10,7 +10,7 @@
 
 // Kept in step with package.json by a test, since nothing at runtime can read
 // package.json to derive it.
-var VERSION = '0.1.9';
+var VERSION = '0.1.10';
 
 var TUNING = {
   speedBaseSeconds: 45,        // open question in the design doc: try 45 vs 60
@@ -728,7 +728,21 @@ function hintChips(label) {
 // On the title screen only - including its loading and error states, which are
 // the same screen and exactly when knowing the version is most useful.
 function versionTag() {
-  return '<div class="version">v' + esc(VERSION) + '</div>';
+  return '<div class="version">v' + esc(VERSION) +
+    '<span class="lastkey" id="lastkey">' + esc(lastKey) + '</span></div>';
+}
+
+// Shown on the title screen only, and empty until a key actually arrives. On a
+// television there is no console to ask which keys the remote sends - and on
+// webOS the answer is "not the arrows" - so the screen answers it instead.
+var lastKey = '';
+
+function reportKey(e) {
+  var name = e.key ? String(e.key) : '?';
+  var code = e.keyCode || e.which || 0;
+  lastKey = name + ' \u00b7 ' + code;
+  var node = document.getElementById('lastkey');
+  if (node) node.textContent = lastKey;
 }
 
 function hintBar(pairs) {
@@ -978,7 +992,8 @@ function view() {
         '<div class="tiles">' + tiles + '</div>' +
         '<div class="note">What survives is the category list for the whole section. ' +
         'Pass the remote after your veto.</div>' +
-        hintBar([['←→↑↓', 'move'], ['OK', 'veto'], ['Back', 'undo']]);
+        hintBar([['←→↑↓', 'move'], ['OK', 'veto'], ['1-' + d.pool.length, 'veto by number'],
+                 ['Back', 'undo']]);
     }
 
     case 'sectionIntro': {
@@ -1019,7 +1034,10 @@ function view() {
         'Spend each value once, so put your big ones on the categories you ' +
         'know. Choose before any options are revealed.</div>' +
         playerStrip(currentPlayerIdx(), true) +
-        hintBar([['←→', 'choose wager'], ['OK', 'lock it in'], ['Back', 'undo']]);
+        hintBar([['←→', 'choose wager'], ['OK', 'lock it in'],
+                 [section().ledger[0] + '-' + section().ledger[section().ledger.length - 1],
+                  'wager that value'],
+                 ['Back', 'undo']]);
     }
 
     case 'question': {
@@ -1029,6 +1047,10 @@ function view() {
         ? [['←→', 'move'], ['OK', 'lock answer'], ['Back', 'keep revealing']]
         : [['OK', q.revealed < 4 ? 'reveal ' + ['A', 'B', 'C', 'D'][q.revealed] : 'choose answer'],
            ['←→', 'pick an answer'], ['Back', 'undo']];
+      if (q.revealed) {
+        hints.splice(1, 0, ['1-' + q.revealed,
+          'lock ' + ['A', 'B', 'C', 'D'].slice(0, q.revealed).join('')]);
+      }
       var pickable = [];
       for (var pi = 0; pi < q.revealed; pi++) pickable.push(pi);
       if (q.revealed < 4) pickable.push(q.revealed);   // tap the next slot to reveal it
@@ -1078,7 +1100,8 @@ function view() {
         ', costs nothing to miss</div>' +
         questionBlock(q, { selIdx: st.alive[st.cursor], dead: [q.lockedIdx],
                            pickable: st.alive }, 1) +
-        hintBar([['←→', 'move'], ['OK', 'steal it'], ['↓', 'pass'], ['Back', 'undo']]);
+        hintBar([['←→', 'move'], ['OK', 'steal it'],
+                 ['1-4', 'steal by letter'], ['↓', 'pass'], ['Back', 'undo']]);
     }
 
     // ----------------------------------------------------------- speed
@@ -1147,7 +1170,8 @@ function view() {
         '<div class="note">Anything from 0 to ' + cap + '. ' +
         'The ceiling moves so whoever is trailing can always catch the leader.</div>' +
         (placed ? '<div class="catlist">Already in: ' + placed + '</div>' : '') +
-        hintBar([['←→', '±1'], ['↑↓', '±5'], ['OK', 'lock wager'], ['Back', 'undo']]);
+        hintBar([['←→', '±1'], ['↑↓', '±5'], ['0-9', 'type it'],
+                 ['OK', 'lock wager'], ['Back', 'undo']]);
     }
 
     case 'finalQuestion': {
@@ -1238,6 +1262,103 @@ function actionFor(e) {
 }
 
 function wrap(i, n) { return ((i % n) + n) % n; }
+
+// The LG Magic Remote drives an on-screen pointer with its D-pad, and webOS
+// eats the arrow keys before the page ever sees them. Its number buttons may
+// therefore be the only keys that reach us, so every screen with a list on it
+// takes a number as a direct shortcut to the nth thing.
+function digitFor(e) {
+  var key = e.key;
+  if (key && key.length === 1 && key >= '0' && key <= '9') return Number(key);
+  var code = e.keyCode || e.which || 0;
+  if (code >= 48 && code <= 57) return code - 48;      // number row
+  if (code >= 96 && code <= 105) return code - 96;     // numeric keypad
+  return null;
+}
+
+// A number commits straight away rather than selecting first. Unlike a stray
+// tap or a nudged pointer, pressing 3 is unambiguous - and Back undoes it.
+function handleDigit(n) {
+  if (!S) {
+    if (setup && setup.screen === 'setupCount' && n >= 2 && n <= 4) {
+      setup.count = n;
+      handleSetup('OK');
+    }
+    return;
+  }
+
+  switch (S.screen) {
+    case 'draft': {
+      var d = S.draft;
+      var slot = n - 1;
+      if (slot < 0 || slot >= d.pool.length) return;
+      if (d.vetoed.indexOf(d.pool[slot]) !== -1) return;
+      snapshot();
+      d.cursor = slot;
+      applyVeto();
+      break;
+    }
+
+    case 'wager': {
+      // The number IS the wager here, not a position in the list.
+      var player = currentPlayer();
+      var at = player.ledger.indexOf(n);
+      if (at === -1) return;
+      snapshot();
+      S.wagerCursor = at;
+      beginQuestion(n);
+      break;
+    }
+
+    case 'question': {
+      var q = S.q;
+      var pick = n - 1;
+      if (pick < 0 || pick >= q.revealed) return;    // not shown yet
+      snapshot();
+      q.sel = pick;
+      lockAnswer(pick);
+      break;
+    }
+
+    case 'steal': {
+      var st = S.steal;
+      var target = st.alive.indexOf(n - 1);
+      if (target === -1) return;
+      snapshot();
+      st.cursor = target;
+      resolveSteal(n - 1);
+      break;
+    }
+
+    case 'finalWager': {
+      // Digits build the number, so a wager of 23 is two presses. Anything that
+      // would overshoot the cap starts again from the digit just pressed, which
+      // also makes 0 the way to clear it.
+      var f = S.final;
+      var cap = finalCapFor(S.players[f.wagerOrder[f.wagerSeat]]);
+      var built = f.wagerValue * 10 + n;
+      f.wagerValue = built <= cap ? built : (n <= cap ? n : cap);
+      break;
+    }
+
+    case 'sudden': {
+      var sd = S.sudden;
+      if (!sd.revealed) return;
+      var winner = n - 1;
+      if (winner < 0 || winner >= sd.players.length) return;
+      snapshot();
+      sd.cursor = winner;
+      S.players[sd.players[winner]].score += 1;
+      S.screen = 'scoreboard';
+      break;
+    }
+
+    default:
+      return;
+  }
+
+  render();
+}
 
 function handle(a) {
   lastPick = null;     // a key press cancels any pending pointer confirmation
@@ -1732,6 +1853,7 @@ function pickSetup(index) {
 // ------------------------------------------------------------------ wiring
 
 document.addEventListener('keydown', function (e) {
+  reportKey(e);
   var a = actionFor(e);
 
   // While a text field has focus every key belongs to it and to the keyboard
@@ -1743,6 +1865,14 @@ document.addEventListener('keydown', function (e) {
     // that is guaranteed to get you off this screen.
     if (a === 'OK' || a === 'DOWN') { e.preventDefault(); handle('OK'); }
     else if (a === 'UP') { e.preventDefault(); handle('BACK'); }
+    return;
+  }
+
+  var digit = digitFor(e);
+  if (digit !== null) {
+    e.preventDefault();
+    lastPick = null;
+    handleDigit(digit);
     return;
   }
 
