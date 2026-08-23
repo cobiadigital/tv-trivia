@@ -244,6 +244,7 @@ for (const [w, h] of [[1920, 1080], [1280, 720]]) {
         over: d.scrollHeight - d.clientHeight,
         hintsBottom: hints ? Math.round(hints.getBoundingClientRect().bottom) : 0,
         hasOptions: document.querySelectorAll('.opt').length,
+        stealOptions: S && S.steal ? S.steal.alive.length : null,
       });
     };
 
@@ -268,8 +269,11 @@ for (const [w, h] of [[1920, 1080], [1280, 720]]) {
     for (let i = 0; i < 4; i++) handle('OK');
     measure('question, all revealed');
 
-    S.q.sel = 1; render(); handle('OK');
-    measure('judge, answer withheld');
+    // Lock early: the judge screen then carries its longest detail line and
+    // opens the whole board, which is the densest it ever gets.
+    S.q.revealed = 2; S.q.sel = 1; render();
+    handle('OK');
+    measure('judge, early lock, answer withheld');
     handle('OK');
     measure('steal');
     const hit = S.steal.alive.indexOf(S.q.correctIdx);
@@ -288,6 +292,10 @@ for (const [w, h] of [[1920, 1080], [1280, 720]]) {
   const judges = probe.filter((r) => r.label.startsWith('judge'));
   expect(judges.every((r) => r.hasOptions === 4),
     `${w}x${h}: the judge screens still show all four options`);
+  const steal = probe.find((r) => r.label === 'steal');
+  expect(steal.stealOptions === 3,
+    `${w}x${h}: the steal offers three options after an early lock ` +
+    `(got ${steal.stealOptions})`);
   await ctx.close();
 }
 

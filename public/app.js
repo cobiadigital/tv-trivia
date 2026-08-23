@@ -418,10 +418,19 @@ function lockAnswer(idx) {
   }
 
   p.missedThisSection = true;
+
+  // Guessing early leaves options unrevealed, and handing the next player a
+  // steal from one or two of them is no steal at all - the answer may not even
+  // be among them. Show the rest of the board before the steal is offered.
+  var lockedEarly = q.revealed < 4;
+  q.revealed = 4;
+
   S.result = {
     kind: 'wrong',
     headline: 'Wrong',
-    detail: p.name + ' burns the ' + q.value + '. Answer hidden until the steal is settled.',
+    detail: p.name + ' burns the ' + q.value + '.' +
+      (lockedEarly ? ' The rest of the board is up now.' : '') +
+      ' The answer stays hidden for the steal.',
     good: false,
     showAnswer: false,
     rollAgain: false

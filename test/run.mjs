@@ -107,6 +107,95 @@ check('steal values are flat per section', () => {
   if (two.stealValue !== 2) throw new Error('a section 2 steal should pay 2');
 });
 
+// Reaches a wager screen with `players` players, all ledgers full.
+function gameAtWager(players) {
+  const g = makeGame(bank);
+  g.press('OK');
+  for (let i = players; i < 4; i++) g.press('LEFT');
+  g.press('OK');
+  for (let i = 0; i < players; i++) g.press('OK');   // default names
+  while (g.screen() === 'draft') g.press('OK');
+  g.press('OK');                                     // section intro
+  return g;
+}
+
+// Locks a deliberately wrong answer after revealing exactly `reveals` options.
+function missAfterRevealing(g, reveals) {
+  g.press('OK');                                     // wager -> question
+  while (g.S.q.revealed < reveals) g.press('OK');
+  let wrong = -1;
+  while (wrong < 0) {
+    for (let i = 0; i < g.S.q.revealed; i++) {
+      if (i !== g.S.q.correctIdx) { wrong = i; break; }
+    }
+    if (wrong < 0) g.press('OK');                    // only the answer is up
+  }
+  while (g.S.q.sel !== wrong) g.press('RIGHT');
+  g.press('OK');
+}
+
+check('an early guess opens the whole board before the steal', () => {
+  for (const reveals of [1, 2, 3, 4]) {
+    const g = gameAtWager(4);
+    missAfterRevealing(g, reveals);
+    if (g.S.result.kind !== 'wrong') throw new Error('expected a miss');
+    if (g.S.q.revealed !== 4) {
+      throw new Error(`locked after ${reveals}: only ${g.S.q.revealed} options shown`);
+    }
+    g.press('OK');
+    if (g.screen() !== 'steal') throw new Error('no steal offered');
+    // Three options survive, and the answer is always one of them - otherwise
+    // the steal is a coin flip, or flatly impossible.
+    if (g.S.steal.alive.length !== 3) {
+      throw new Error(`locked after ${reveals}: steal offered ${g.S.steal.alive.length} options`);
+    }
+    if (g.S.steal.alive.indexOf(g.S.q.correctIdx) === -1) {
+      throw new Error(`locked after ${reveals}: the answer was not among the steal options`);
+    }
+    if (/class="opt[^"]*\bcorrect\b/.test(g.html())) {
+      throw new Error('opening the board revealed the answer');
+    }
+  }
+});
+
+check('the stealer keeps their own turn, whatever the steal does', () => {
+  for (const outcome of ['won', 'failed', 'passed']) {
+    const g = gameAtWager(4);
+    missAfterRevealing(g, 2);
+    g.press('OK');                                   // -> steal
+    const stealer = g.S.steal.playerIdx;
+    const before = g.S.players[stealer].score;
+    const ledgerBefore = g.S.players[stealer].ledger.length;
+
+    if (outcome === 'passed') {
+      g.press('DOWN');
+    } else {
+      const hit = g.S.steal.alive.indexOf(g.S.q.correctIdx);
+      const target = outcome === 'won'
+        ? hit
+        : g.S.steal.alive.findIndex((i) => i !== g.S.q.correctIdx);
+      while (g.S.steal.cursor !== target) g.press('RIGHT');
+      g.press('OK');
+    }
+
+    g.press('OK');                                   // judge -> on with the game
+    if (g.screen() !== 'wager') throw new Error(`${outcome}: expected a wager, got ${g.screen()}`);
+    if (g.S.order[g.S.turn] !== stealer) {
+      throw new Error(`${outcome}: the turn went to ${g.S.players[g.S.order[g.S.turn]].name}, ` +
+        `not the stealer ${g.S.players[stealer].name}`);
+    }
+    if (g.S.players[stealer].ledger.length !== ledgerBefore) {
+      throw new Error(`${outcome}: the steal cost the stealer a ledger value`);
+    }
+    const gained = g.S.players[stealer].score - before;
+    if (outcome === 'won' && gained !== 1) throw new Error('a won steal should pay 1');
+    if (outcome !== 'won' && gained !== 0) throw new Error(`${outcome} steal changed the score`);
+    if (g.S.players[stealer].missedThisSection) {
+      throw new Error(`${outcome}: a steal must not spoil the stealer's sweep`);
+    }
+  }
+});
+
 check('the answer stays hidden until the steal is settled', () => {
   const shows = () => /class="opt[^"]*\bcorrect\b/.test(g.html());
   const g = makeGame(bank);

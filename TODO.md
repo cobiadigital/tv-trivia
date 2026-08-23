@@ -14,6 +14,9 @@
 - [x] Roll again on correct, sweep bonus (+3) for an unbroken ledger
 - [x] Steal by the next player, flat 1 in Section 1 and 2 in Section 2, with
       the correct answer withheld until the steal is settled
+- [x] A miss opens the rest of the board before the steal, so guessing early
+      never shrinks what the next player gets to choose from
+- [x] The stealer keeps their own turn whatever the steal does
 - [x] Speed round — per-player clock, free answer, host judges, comeback weighting
 - [x] Final — dynamic wager cap, lowest scorer declares first, wagers resolve
 - [x] Sudden death for ties
@@ -45,6 +48,12 @@
       so more steals. At a flat 2 points those may add up faster than expected.
 - [ ] **Wager cap.** `max(15, gap+1)` makes the final swingy by design. Confirm
       it doesn't make Sections 1 and 2 feel pointless.
+
+## Open questions
+
+- **A correct early lock still leaves options hidden.** Only a miss opens the
+  board, since only a miss leads to a steal. Players may want to see what the
+  other options were either way; it costs a beat to show them.
 
 ## Later
 
