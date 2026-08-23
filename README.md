@@ -24,6 +24,22 @@ src/index.js         Worker: /api/health, plus a fallback to index.html
 `src/index.js` only handles paths that aren't files in `public/`. If the game
 later needs server state, that's where it goes.
 
+## Old television engines
+
+`public/app.js` is written to an ES5-era baseline: no arrow functions, no
+`const`/`let`, no template literals, no `fetch`. A webOS set can be running an
+engine as old as Chromium 38, and `npm test` scans the file for anything past
+that baseline — this is cheap insurance, because the failures are invisible.
+`fetch` sat at the top of a promise chain, so on an engine without it the call
+threw *before any promise existed*, nothing caught it, and the screen simply
+read "Loading questions" for ever.
+
+The question bank is loaded over `XMLHttpRequest` with a 30-second timeout, and
+every failure path lands on an error screen that names the cause and prints the
+user agent. A `window.onerror` handler paints anything else that gets thrown.
+There is no console on a television, so if the app cannot say what went wrong,
+nobody can find out.
+
 ## Fitting a television
 
 A TV has no scrollbar and the body does not scroll, so anything past the bottom
@@ -204,7 +220,9 @@ it off a television.
 
 It lives in two places, `VERSION` in `public/app.js` and `version` in
 `package.json`, because nothing at runtime can read `package.json` to derive it.
-`npm test` fails if the two drift apart. Bump both together.
+`npm test` fails if the two drift apart. Bump both together, and match the
+number to the pull request it ships in, so a screen photographed off a
+television identifies exactly what is running.
 
 ## Deploying
 
