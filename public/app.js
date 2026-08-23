@@ -675,9 +675,34 @@ var KEYS = [
 var setup = null;
 var loadError = null;
 
+// The hint bar doubles as the touch control bar: every key it names is also a
+// tappable chip dispatching the same action, so a phone or a mouse can drive
+// every screen the remote can. The chips are divs rather than buttons - nothing
+// on the page is focusable, so a TV browser that synthesises a click from Enter
+// has no target to land on and cannot double-fire.
+var GLYPH_ACTION = { '\u2190': 'LEFT', '\u2192': 'RIGHT', '\u2191': 'UP', '\u2193': 'DOWN' };
+
+// '\u2190\u2192' in a hint becomes two chips; 'OK' and 'Back' become one each.
+function hintChips(label) {
+  if (label === 'OK') return [['OK', 'OK']];
+  if (label === 'Back') return [['Back', 'BACK']];
+  var out = [];
+  for (var i = 0; i < label.length; i++) {
+    var ch = label.charAt(i);
+    if (GLYPH_ACTION[ch]) out.push([ch, GLYPH_ACTION[ch]]);
+  }
+  return out.length ? out : [[label, null]];
+}
+
 function hintBar(pairs) {
   var html = pairs.map(function (p) {
-    return '<span><b>' + esc(p[0]) + '</b> ' + esc(p[1]) + '</span>';
+    var chips = hintChips(p[0]).map(function (c) {
+      if (!c[1]) return '<span class="hint-key dead">' + esc(c[0]) + '</span>';
+      return '<span class="hint-key" role="button" data-act="' + c[1] + '">' +
+        esc(c[0]) + '</span>';
+    }).join('');
+    return '<span class="hint">' + chips +
+      '<span class="hint-label">' + esc(p[1]) + '</span></span>';
   }).join('');
   return '<div class="hints">' + html + '</div>';
 }
@@ -737,7 +762,12 @@ function optionRows(q, opts) {
       else if (i === opts.lockedIdx) cls += ' wrong';
     }
 
-    html += '<div class="' + cls + '"><span class="letter">' + letters[i] + '</span>' + text + '</div>';
+    var pickable = opts.pickable && opts.pickable.indexOf(i) !== -1;
+    if (pickable) cls += ' tappable';
+
+    html += '<div class="' + cls + '"' +
+      (pickable ? ' role="button" data-pick="' + i + '"' : '') +
+      '><span class="letter">' + letters[i] + '</span>' + text + '</div>';
   }
   return html + '</div>';
 }
@@ -780,7 +810,8 @@ function view() {
     case 'setupCount': {
       var tiles = '';
       for (var n = 2; n <= 4; n++) {
-        tiles += '<div class="tile' + (setup.count === n ? ' sel' : '') + '">' + n + '</div>';
+        tiles += '<div class="tile tappable' + (setup.count === n ? ' sel' : '') +
+          '" role="button" data-pick="' + (n - 2) + '">' + n + '</div>';
       }
       return '<div class="eyebrow">Setup</div><h1>How many playing?</h1>' +
         '<div class="tiles">' + tiles + '</div>' +
@@ -797,7 +828,8 @@ function view() {
           var k = KEYS[r][c];
           var wide = (k.length > 1);
           kb += '<div class="key' + (wide ? ' wide' : '') +
-            (setup.row === r && setup.col === c ? ' sel' : '') + '">' + esc(k) + '</div>';
+            (setup.row === r && setup.col === c ? ' sel' : '') +
+            '" role="button" data-key="' + r + '.' + c + '">' + esc(k) + '</div>';
         }
         kb += '</div>';
       }
@@ -816,8 +848,10 @@ function view() {
       for (var i = 0; i < d.pool.length; i++) {
         var id = d.pool[i];
         var dead = d.vetoed.indexOf(id) !== -1;
-        tiles += '<div class="tile wide' + (dead ? ' gone' : '') +
-          (i === d.cursor && !dead ? ' sel' : '') + '">' + esc(bank.catName[id]) + '</div>';
+        tiles += '<div class="tile wide' + (dead ? ' gone' : ' tappable') +
+          (i === d.cursor && !dead ? ' sel' : '') + '"' +
+          (dead ? '' : ' role="button" data-pick="' + i + '"') +
+          '>' + esc(bank.catName[id]) + '</div>';
       }
       return statusBar(['Veto <b>' + (d.vetoerTurn + 1) + '</b> of <b>' + d.vetoes + '</b>']) +
         '<h2>' + esc(vetoer.name) + ', kill one category</h2>' +
@@ -850,7 +884,10 @@ function view() {
         var v = section().ledger[i];
         var spent = p.ledger.indexOf(v) === -1;
         var isCursor = !spent && p.ledger[S.wagerCursor] === v;
-        tiles += '<div class="tile' + (spent ? ' spent' : '') + (isCursor ? ' sel' : '') + '">' + v + '</div>';
+        tiles += '<div class="tile' + (spent ? ' spent' : ' tappable') +
+          (isCursor ? ' sel' : '') + '"' +
+          (spent ? '' : ' role="button" data-pick="' + i + '"') +
+          '>' + v + '</div>';
       }
       var value = p.ledger[S.wagerCursor];
       var tier = DIFFICULTY_NAMES[DIFFICULTY_FOR_VALUE[value]];
@@ -872,12 +909,15 @@ function view() {
         ? [['←→', 'move'], ['OK', 'lock answer'], ['Back', 'keep revealing']]
         : [['OK', q.revealed < 4 ? 'reveal ' + ['A', 'B', 'C', 'D'][q.revealed] : 'choose answer'],
            ['←→', 'pick an answer'], ['Back', 'undo']];
+      var pickable = [];
+      for (var pi = 0; pi < q.revealed; pi++) pickable.push(pi);
+      if (q.revealed < 4) pickable.push(q.revealed);   // tap the next slot to reveal it
       return statusBar(['Up: <b>' + esc(S.players[q.ownerIdx].name) + '</b>',
                         'Wager <b>' + q.value + '</b>',
                         DIFFICULTY_NAMES[q.difficulty]]) +
         categoryLine(q.categoryId) +
         '<div class="question">' + esc(q.text) + '</div>' +
-        optionRows(q, { selIdx: q.sel }) +
+        optionRows(q, { selIdx: q.sel, pickable: pickable }) +
         (q.revealed < 4 && !selecting
           ? '<div class="note">Locking before option D is revealed is worth +' +
             TUNING.earlyLockBonus + '.</div>'
@@ -910,7 +950,8 @@ function view() {
       return statusBar(['Steal: <b>' + esc(S.players[st.playerIdx].name) + '</b>']) +
         '<div class="eyebrow">Worth ' + Math.ceil(q.value / 2) + ', costs nothing to miss</div>' +
         '<div class="question">' + esc(q.text) + '</div>' +
-        optionRows(q, { selIdx: st.alive[st.cursor], dead: [q.lockedIdx] }) +
+        optionRows(q, { selIdx: st.alive[st.cursor], dead: [q.lockedIdx],
+                        pickable: st.alive }) +
         hintBar([['←→', 'move'], ['OK', 'steal it'], ['↓', 'pass'], ['Back', 'undo']]);
     }
 
@@ -1016,8 +1057,8 @@ function view() {
     case 'sudden': {
       var sd = S.sudden;
       var tiles = sd.players.map(function (i, n) {
-        return '<div class="tile wide' + (n === sd.cursor ? ' sel' : '') + '">' +
-          esc(S.players[i].name) + '</div>';
+        return '<div class="tile wide tappable' + (n === sd.cursor ? ' sel' : '') +
+          '" role="button" data-pick="' + n + '">' + esc(S.players[i].name) + '</div>';
       }).join('');
       return '<div class="eyebrow">Sudden death · ' + esc(bank.catName[sd.categoryId]) + '</div>' +
         '<div class="question">' + esc(sd.q.q) + '</div>' +
@@ -1073,6 +1114,8 @@ function actionFor(e) {
 function wrap(i, n) { return ((i % n) + n) % n; }
 
 function handle(a) {
+  lastPick = null;     // a key press cancels any pending pointer confirmation
+
   // ---------------------------------------------------------------- boot
   if (!S) {
     if (loadError) { if (a === 'OK') loadBank(); return; }
@@ -1365,6 +1408,121 @@ function loadBank() {
     });
 }
 
+// ----------------------------------------------------------- pointer input
+
+// Pointer is the secondary input. The remote drives everything; a mouse or a
+// finger reaches the same actions through the hint chips and the on-screen
+// targets. Tapping a target moves the cursor to it, and tapping it again
+// confirms - the same arrow-then-OK the remote does, so a stray tap cannot
+// lock an answer or burn a wager on its own.
+// The pending pointer confirmation. Arming is tracked separately from the
+// cursor, because the cursor already sits on the first target when a screen
+// opens - keying off it would make the first tile a one-tap commit while every
+// other one took two.
+var lastPick = null;
+
+// `sig` identifies what is actually on screen - the player whose wager this is,
+// the question being answered. Without it an arming could survive a turn
+// change, and the next player's first tap would commit instead of select.
+function armed(index, sig) {
+  var key = currentScreen() + '|' + index + '|' + (sig === undefined ? '' : sig);
+  var hit = (lastPick === key);
+  lastPick = key;
+  return hit;
+}
+
+function handlePick(index) {
+  if (!S) { pickSetup(index); return; }
+
+  switch (S.screen) {
+    case 'draft': {
+      var d = S.draft;
+      if (d.vetoed.indexOf(d.pool[index]) !== -1) return;
+      d.cursor = index;
+      if (!armed(index, d.vetoerTurn)) break;
+      snapshot();
+      applyVeto();
+      break;
+    }
+
+    case 'wager': {
+      var p = currentPlayer();
+      var value = section().ledger[index];
+      var slot = p.ledger.indexOf(value);
+      if (slot === -1) return;                     // already spent
+      S.wagerCursor = slot;
+      if (!armed(index, currentPlayerIdx())) break;
+      snapshot();
+      beginQuestion(value);
+      break;
+    }
+
+    case 'question': {
+      var q = S.q;
+      // Tapping the next blank slot reveals it: that is not destructive, so it
+      // does not need confirming.
+      if (q.revealed < 4 && index === q.revealed) {
+        lastPick = null;
+        snapshot();
+        q.revealed++;
+        break;
+      }
+      if (index >= q.revealed) return;
+      q.sel = index;
+      if (!armed(index, q.id)) break;
+      snapshot();
+      lockAnswer(index);
+      break;
+    }
+
+    case 'steal': {
+      var st = S.steal;
+      var at = st.alive.indexOf(index);
+      if (at === -1) return;
+      st.cursor = at;
+      if (!armed(index, S.q.id)) break;
+      snapshot();
+      resolveSteal(index);
+      break;
+    }
+
+    case 'sudden': {
+      var sd = S.sudden;
+      if (!sd.revealed) return;
+      sd.cursor = index;
+      if (!armed(index, sd.q.id)) break;
+      snapshot();
+      S.players[sd.players[index]].score += 1;
+      S.screen = 'scoreboard';
+      break;
+    }
+
+    default:
+      return;
+  }
+
+  render();
+}
+
+function pickSetup(index) {
+  if (!setup || setup.screen !== 'setupCount') return;
+  var confirm = armed(index);
+  setup.count = index + 2;
+  if (confirm) { handleSetup('OK'); return; }
+  renderSetup();
+}
+
+// Keyboard keys type on a single tap: there is nothing destructive to guard
+// against, and two taps per letter would make name entry unbearable.
+function pickKey(row, col) {
+  if (!setup || setup.screen !== 'setupName') return;
+  setup.row = row;
+  setup.col = col;
+  handleSetup('OK');
+}
+
+// ------------------------------------------------------------------ wiring
+
 document.addEventListener('keydown', function (e) {
   var a = actionFor(e);
   if (!a) return;
@@ -1372,11 +1530,25 @@ document.addEventListener('keydown', function (e) {
   handle(a);
 });
 
-// A tap anywhere counts as OK, so the game is testable on a phone. Clicks
-// synthesised from an Enter keypress carry detail 0; ignoring those stops a
-// TV remote from advancing two screens on one press.
 document.addEventListener('click', function (e) {
-  if (e.detail > 0) handle('OK');
+  var node = e.target;
+  while (node && node !== document.body) {
+    if (node.getAttribute) {
+      var act = node.getAttribute('data-act');
+      if (act) { handle(act); return; }
+
+      var pick = node.getAttribute('data-pick');
+      if (pick !== null && pick !== '') { handlePick(Number(pick)); return; }
+
+      var key = node.getAttribute('data-key');
+      if (key) {
+        var rc = key.split('.');
+        pickKey(Number(rc[0]), Number(rc[1]));
+        return;
+      }
+    }
+    node = node.parentNode;
+  }
 });
 
 loadBank();

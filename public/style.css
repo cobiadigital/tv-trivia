@@ -34,6 +34,7 @@ body {
   font-size: 1.4rem;
   line-height: 1.35;
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: rgba(255, 210, 63, 0.22);
   overflow: hidden;
 }
 
@@ -148,8 +149,12 @@ h2 {
   min-width: 2rem;
 }
 
-.opt.hidden { opacity: 0.35; }
+.opt.hidden { opacity: 0.3; }
 .opt.hidden .text { color: var(--dim); font-style: italic; }
+
+/* The slot that reveals next, distinguished from the ones behind it without
+   spending any words on it. */
+.opt.hidden.tappable { opacity: 0.55; border-style: dashed; }
 
 .opt.sel {
   border-color: var(--accent);
@@ -251,6 +256,24 @@ h2 {
 .rank .sc { color: var(--accent); font-weight: 800; margin-left: 1.5rem; }
 .rank.first .nm, .rank.first .sc { color: var(--accent); }
 
+/* ------------------------------------------------------------------ pointer */
+
+/* Pointer is secondary input, so nothing here carries meaning on its own -
+   the focus ring drawn for the remote stays the source of truth. */
+.hint-key, .opt.tappable, .tile.tappable, .key {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.hint-key.dead { cursor: default; }
+
+@media (hover: hover) {
+  .hint-key:hover, .opt.tappable:hover, .tile.tappable:hover, .key:hover {
+    border-color: var(--dim);
+  }
+  .opt.sel:hover, .tile.sel:hover, .key.sel:hover { border-color: var(--accent); }
+}
+
 /* --------------------------------------------------------------------- hints */
 
 .hints {
@@ -261,10 +284,44 @@ h2 {
   font-size: 1.15rem;
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
 }
 
-.hints span { margin-right: 1.8rem; white-space: nowrap; }
-.hints b { color: var(--ink); font-weight: 700; }
+/* Each hint is also a touch target: the chip dispatches the key it names. */
+.hint {
+  display: flex;
+  align-items: center;
+  margin-right: 1.6rem;
+  margin-bottom: 0.3rem;
+  white-space: nowrap;
+}
+
+.hint-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.6rem;
+  min-height: 2.6rem;
+  padding: 0 0.55rem;
+  margin-right: 0.3rem;
+  border: 2px solid var(--line);
+  border-radius: 0.4rem;
+  background: var(--panel);
+  color: var(--ink);
+  font-weight: 700;
+}
+
+/* A hint with no key behind it, e.g. a label. Not a target. */
+.hint-key.dead {
+  border-color: transparent;
+  background: none;
+  color: var(--dim);
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+}
+
+.hint-label { margin-left: 0.35rem; }
 
 .catlist { color: var(--dim); font-size: 1.2rem; margin-bottom: 1.2rem; }
 .catlist b { color: var(--ink); }
