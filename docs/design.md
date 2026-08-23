@@ -110,6 +110,10 @@ Calling it off two options is a real gamble, since D might have been the answer
 you wanted. This is the mechanic that makes the reveal pacing matter rather than
 just being ceremony.
 
+Getting it wrong early costs nothing extra beyond the burned wager: the rest of
+the options are then revealed for the steal, so guessing early never shrinks the
+board the next player sees.
+
 ---
 
 ## Roll again
@@ -133,7 +137,16 @@ same question, with the remaining options still on screen.
   regardless of what the player who missed had wagered
 - The stealer spends nothing from their own ledger
 - Only one steal attempt per question, and a failed steal costs nothing
-- After the steal resolves, play continues to the next player normally
+- **The stealer keeps their own turn.** Winning, missing or passing a steal
+  does not consume it: once the steal resolves, play moves to the next player
+  in order, who is the stealer. A steal is a free extra shot, never a trade
+  against your own question
+
+**A miss opens the rest of the board.** If the player guessed before all four
+options were shown, the unrevealed ones go up before the steal is offered.
+Otherwise the next player would be picking from one or two options — and the
+answer might not even be among them, making the steal impossible rather than
+merely hard.
 
 **The correct answer stays hidden until the steal is settled.** A miss shows
 only that it was a miss, with the wrong answer marked. Revealing the answer
@@ -276,7 +289,8 @@ ATTRACT ──▶ SETUP (players, names, handicaps)
               │                                     JUDGE
               │                              ┌─────────┴─────────┐
               │                          correct               wrong
-              │                       (answer shown)     (answer withheld)
+              │                       (answer shown)   (board opened, but
+              │                              │          answer withheld)
               │                              │                   │
               └──── roll again ◀─────────────┘                   ▼
                                                              STEAL_OFFER
@@ -285,7 +299,8 @@ ATTRACT ──▶ SETUP (players, names, handicaps)
                                                         REVEAL_ANSWER
                                                                  │
                                                                  ▼
-                                                            NEXT_PLAYER
+                                                   NEXT_PLAYER (the stealer,
+                                                    whatever the steal did)
                                                                  │
               (ledgers empty) ───────────────────────────────────┘
                               │

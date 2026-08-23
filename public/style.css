@@ -214,7 +214,7 @@ h2 {
 
 /* Beside a question block the detail line has to stay on one row, so let it
    run wider rather than wrapping and pushing the hint bar off the screen. */
-.verdict.tight + .note { max-width: 74ch; font-size: 1.15rem; margin-top: 0; }
+.verdict.tight + .note { max-width: 96ch; font-size: 1.15rem; margin-top: 0; }
 .verdict.good { color: var(--good); }
 .verdict.bad { color: var(--bad); }
 
