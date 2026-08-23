@@ -35,8 +35,6 @@ export function makeGame(bankJson) {
   };
 }
 
-const LETTERS = ['A', 'B', 'C', 'D'];
-
 // Plays one whole game. `pCorrect` drives the bot's accuracy so that the same
 // harness exercises sweeps, steals, and blowouts.
 export function playGame(bankJson, opts = {}) {
@@ -58,18 +56,13 @@ export function playGame(bankJson, opts = {}) {
     }
   }
 
-  // Attract -> setup -> names
+  // Attract -> setup -> names. Names come from a real text field now, so the
+  // harness writes what the field would have held and presses OK.
   press('OK');
   for (let i = names.length; i < 4; i++) press('LEFT');   // 4 is the default
   press('OK');
   for (let i = 0; i < names.length; i++) {
-    for (const ch of names[i].toUpperCase()) {
-      const r = ctxFindKey(ch);
-      moveTo(g, press, r[0], r[1]);
-      press('OK');
-    }
-    const d = ctxFindKey('DONE');
-    moveTo(g, press, d[0], d[1]);
+    g.ctx.setup.names[i] = names[i];
     press('OK');
   }
 
@@ -160,26 +153,4 @@ export function playGame(bankJson, opts = {}) {
   return { g, steals, sweeps, earlyLocks, questions, log };
 }
 
-const KEYS = [
-  ['A', 'B', 'C', 'D', 'E', 'F', 'G'],
-  ['H', 'I', 'J', 'K', 'L', 'M', 'N'],
-  ['O', 'P', 'Q', 'R', 'S', 'T', 'U'],
-  ['V', 'W', 'X', 'Y', 'Z', "'", 'SPACE'],
-  ['0', '1', '2', '3', '4', '5', '6'],
-  ['7', '8', '9', 'DEL', 'DONE'],
-];
 
-function ctxFindKey(ch) {
-  for (let r = 0; r < KEYS.length; r++) {
-    const c = KEYS[r].indexOf(ch);
-    if (c >= 0) return [r, c];
-  }
-  throw new Error('no key for ' + ch);
-}
-
-function moveTo(g, press, row, col) {
-  let guard = 0;
-  while (g.ctx.setup.row !== row) { press('DOWN'); if (guard++ > 20) throw new Error('row nav'); }
-  guard = 0;
-  while (g.ctx.setup.col !== col) { press('RIGHT'); if (guard++ > 20) throw new Error('col nav'); }
-}

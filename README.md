@@ -38,6 +38,22 @@ Open the deployed URL in the TV browser. Everything maps to the D-pad:
 Coloured remote buttons are deliberately unused: their key codes vary wildly
 across Tizen, webOS, Fire TV and Android TV.
 
+### Entering names
+
+Setup uses a real `<input type="text">`, focused on arrival. Every TV browser
+brings up its own on-screen keyboard for a focused text field, and that keyboard
+is better than anything this app could draw: it knows the remote, it has the
+platform's own text prediction, and on many sets it accepts voice input.
+
+The one wrinkle is Enter. Some TV browsers deliver it to the page; others keep
+it to raise their keyboard. So **Down** also moves to the next player, and Up
+goes back — Down always reaches the page, which makes it the key that cannot
+strand you on the field. Both are named in the hint bar.
+
+While the field has focus, every other key belongs to it: arrows move the caret
+or the keyboard's own selection, and Backspace deletes. Typing never re-renders
+the screen, because rebuilding it would drop focus and dismiss the keyboard.
+
 ### Mouse and touch
 
 The remote is the primary input; a mouse or a finger is a supported second one,
@@ -46,18 +62,42 @@ useful for a laptop, a tablet, or playtesting on a phone.
 Every screen prints its own key map along the bottom, and each key in that map
 is also a tappable chip that fires the same action — so the hint bar doubles as
 the touch control bar and no screen is reachable only by keyboard. On-screen
-targets are directly tappable too: categories, ledger values, answer options,
-and the letters of the name keyboard.
+targets are directly tappable too: categories, ledger values, and answer
+options.
 
 Tapping a target selects it; tapping it again commits. That mirrors the
 remote's arrow-then-OK, and means a stray tap can't burn a wager or lock an
-answer. The two exceptions are deliberate: keyboard letters type on one tap,
-and tapping the next blank answer slot reveals it, neither being destructive.
+answer. The one exception is deliberate: tapping the next blank answer slot
+reveals it, which isn't destructive.
 
 Pointer support adds no meaning of its own. The focus ring drawn for the remote
 stays the single source of truth about what is selected, hover is never load-
 bearing, and nothing on the page is focusable — which also stops TV browsers
 that synthesise a click from Enter from firing an action twice.
+
+### Small screens
+
+The television layout assumes a screen that can show a whole state at once
+inside a 5% overscan margin. A phone can do neither, so below 800px wide — or
+below 550px tall, which is a phone held sideways — the layout changes rather
+than just shrinking:
+
+- The overscan margin gives way to the safe-area insets. The viewport is
+  `viewport-fit=cover`, so without `env(safe-area-inset-*)` the Dynamic Island
+  and the home indicator would sit on top of the game.
+- Content scrolls instead of being clipped. On a television everything must
+  fit; on a phone it can't, at a legible size.
+- The hint bar sticks to the bottom of the viewport. On touch those chips are
+  the controls, so they shouldn't scroll away.
+- Type and spacing step down, and categories go full width — they're too long
+  to sit two-up, and full width makes them the easiest thing to hit.
+
+The root font size is fixed on phones rather than scaled to viewport height:
+`2.2vh` is right for a panel and much too large for a phone.
+
+Checked at 393×659, 402×734, 440×782, 874×402 landscape, and 360×640.
+Playwright has no iPhone 17 Pro profile, so those brackets straddle it rather
+than matching it exactly.
 
 ## Question bank
 
@@ -89,7 +129,10 @@ the scoring rules match the design doc.
 
 `test/pointer.mjs` drives a game in Chromium using only mouse and touch,
 checking that pointer reaches every action, that one tap never commits
-anything, and that every touch target clears 32px. Playwright is deliberately
+anything, and that every touch target clears 32px. It then replays a question
+screen at five viewport sizes, asserting no horizontal overflow, that
+overflowing content scrolls rather than being clipped, that the control bar
+stays on screen, and that question text lands between 16 and 40px. Playwright is deliberately
 not a project dependency — it would slow every Cloudflare deploy for a test
 that only runs locally — so this exits 0 with a note when it isn't installed:
 
