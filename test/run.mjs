@@ -115,7 +115,32 @@ check('the version shown matches package.json', () => {
   if (!/^\d+\.\d+\.\d+$/.test(pkg.version)) throw new Error('not a version: ' + pkg.version);
 });
 
-check('the version is on the title screen and nowhere else', () => {
+// The count opened on 4, which was also its ceiling, so Right did nothing at
+// all and Left died after two presses. A control that silently refuses is
+// indistinguishable from one that is broken, and this one was the first the
+// player meets.
+check('the player count arrows always move', () => {
+  const g = makeGame(bank);
+  g.press('OK');                                   // attract -> player count
+  if (g.screen() !== 'setupCount') throw new Error('not on the count screen');
+
+  for (const dir of ['LEFT', 'RIGHT']) {
+    const reached = new Set([g.ctx.setup.count]);
+    for (let i = 0; i < 6; i++) {
+      const before = g.ctx.setup.count;
+      g.press(dir);
+      const after = g.ctx.setup.count;
+      if (after === before) throw new Error(`${dir} did nothing at ${before}`);
+      if (after < 2 || after > 4) throw new Error(`${dir} reached ${after}`);
+      reached.add(after);
+    }
+    if (reached.size !== 3) {
+      throw new Error(`${dir} only ever reaches ${[...reached].sort().join(', ')}`);
+    }
+  }
+});
+
+check('the version is on the title and setup screens, not in play', () => {
   const g = makeGame(bank);
   const shown = () => /class="version">v([\d.]+)</.exec(g.html());
 
@@ -124,9 +149,16 @@ check('the version is on the title screen and nowhere else', () => {
   if (!tag) throw new Error('no version on the attract screen');
   if (tag[1] !== g.ctx.VERSION) throw new Error('shows ' + tag[1]);
 
-  g.press('OK');                                   // attract -> player count
+  // Setup keeps it: that is where you are still finding out whether the
+  // controls respond at all.
+  g.press('OK');
   if (g.screen() !== 'setupCount') throw new Error('did not leave the title screen');
-  if (shown()) throw new Error('the version leaked past the title screen');
+  if (!shown()) throw new Error('the version vanished on the setup screen');
+
+  g.press('OK');                                   // count -> first name
+  for (let i = 0; i < 4; i++) g.press('OK');       // accept four default names
+  if (g.screen() !== 'draft') throw new Error('did not reach the draft');
+  if (shown()) throw new Error('the version leaked into the game');
 
   // Still there when the bank fails, which is when it is most worth reading.
   const broken = makeGame(bank);

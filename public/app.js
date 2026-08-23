@@ -10,7 +10,7 @@
 
 // Kept in step with package.json by a test, since nothing at runtime can read
 // package.json to derive it.
-var VERSION = '0.1.12';
+var VERSION = '0.1.13';
 
 var TUNING = {
   speedBaseSeconds: 45,        // open question in the design doc: try 45 vs 60
@@ -740,7 +740,11 @@ var lastKey = '';
 function reportKey(e) {
   var name = e.key ? String(e.key) : '?';
   var code = e.keyCode || e.which || 0;
-  lastKey = name + ' \u00b7 ' + code;
+  reportInput(name + ' \u00b7 ' + code);
+}
+
+function reportInput(text) {
+  lastKey = text;
   var node = document.getElementById('lastkey');
   if (node) node.textContent = lastKey;
 }
@@ -986,7 +990,8 @@ function view() {
         tiles += '<div class="tile tappable' + (setup.count === n ? ' sel' : '') +
           '" role="button" data-pick="' + (n - 2) + '">' + n + '</div>';
       }
-      return '<div class="eyebrow">Setup</div><h1>How many playing?</h1>' +
+      return versionTag() +
+        '<div class="eyebrow">Setup</div><h1>How many playing?</h1>' +
         '<div class="tiles">' + tiles + '</div>' +
         '<div class="note">Players or teams. Nothing breaks at more, but the pacing is tuned for two to four.</div>' +
         hintBar([['←→', 'choose'], ['OK', 'confirm'], ['Back', 'undo']]);
@@ -999,7 +1004,8 @@ function view() {
       }).join(' &nbsp;·&nbsp; ');
       // A real text field, so the TV's own keyboard does the typing. Every TV
       // browser has one; a D-pad grid was only ever a worse version of it.
-      return '<div class="eyebrow">Player ' + (setup.playerIdx + 1) + ' of ' + setup.count + '</div>' +
+      return versionTag() +
+        '<div class="eyebrow">Player ' + (setup.playerIdx + 1) + ' of ' + setup.count + '</div>' +
         '<h2>Who is playing?</h2>' +
         '<input class="namefield" id="namefield" type="text" ' +
         'maxlength="' + TUNING.maxNameLength + '" value="' + esc(name) + '" ' +
@@ -1658,8 +1664,8 @@ function isTyping() {
 
 function handleSetup(a) {
   if (setup.screen === 'setupCount') {
-    if (a === 'LEFT') setup.count = Math.max(2, setup.count - 1);
-    else if (a === 'RIGHT') setup.count = Math.min(4, setup.count + 1);
+    if (a === 'LEFT') setup.count = 2 + wrap(setup.count - 3, 3);
+    else if (a === 'RIGHT') setup.count = 2 + wrap(setup.count - 1, 3);
     else if (a === 'OK') { setup.screen = 'setupName'; setup.playerIdx = 0; setup.names = []; }
     else if (a === 'BACK') { setup = null; }
     renderSetup();
@@ -1930,15 +1936,22 @@ document.addEventListener('input', function (e) {
   }
 });
 
-document.addEventListener('click', function (e) {
+/* Delegated from #screen rather than document: iOS is unreliable about
+   bubbling clicks on non-interactive elements as far as the document, but a
+   real element ancestor gets them, and every target lives inside this one. */
+document.getElementById('screen').addEventListener('click', function (e) {
   var node = e.target;
   while (node && node !== document.body) {
     if (node.getAttribute) {
       var act = node.getAttribute('data-act');
-      if (act) { handle(act); return; }
+      if (act) { reportInput('tap ' + act); handle(act); return; }
 
       var pick = node.getAttribute('data-pick');
-      if (pick !== null && pick !== '') { handlePick(Number(pick)); return; }
+      if (pick !== null && pick !== '') {
+        reportInput('tap #' + (Number(pick) + 1));
+        handlePick(Number(pick));
+        return;
+      }
     }
     node = node.parentNode;
   }
