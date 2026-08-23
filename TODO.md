@@ -79,6 +79,11 @@
 
 ## Known rough edges
 
+- The palette is defined with CSS custom properties, which need Chromium 49+.
+  On an engine older than that the game would run but render unstyled. Nothing
+  has reported it; giving every `var()` a literal fallback is the fix if it
+  turns up.
+
 - On the smallest screens (360×640) with an unusually long question, the last
   option needs a short scroll inside the content region. It is reachable and
   cannot be hidden behind the control bar, but it does not all fit at once.

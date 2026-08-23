@@ -64,6 +64,48 @@ for (const names of [['Ann', 'Bo'], ['Ann', 'Bo', 'Cy']]) {
 
 console.log('\nrules');
 
+// The television engines this has to run on are old. webOS in particular can be
+// Chromium 38, which has no fetch - and the way that failed was invisible: the
+// call sat at the top of a promise chain, so it threw before any promise
+// existed and nothing caught it. The screen simply stayed on "Loading
+// questions" for ever. A static scan is the cheapest guard against a repeat.
+check('app.js keeps to the old-engine baseline', () => {
+  const src = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')       // block comments
+    .replace(/^\s*\/\/.*$/gm, '');           // line comments
+
+  const banned = [
+    ['fetch(', 'fetch - Chromium 42+, absent on older webOS'],
+    ['=>', 'arrow functions'],
+    ['`', 'template literals'],
+    ['?.', 'optional chaining'],
+    ['??', 'nullish coalescing'],
+    ['structuredClone', 'structuredClone'],
+    ['.includes(', 'Array/String includes'],
+    ['.find(', 'Array.find'],
+    ['.findIndex(', 'Array.findIndex'],
+    ['.padStart(', 'padStart'],
+    ['Object.assign', 'Object.assign'],
+    ['Object.entries', 'Object.entries'],
+    ['Object.values', 'Object.values'],
+    ['Array.from', 'Array.from'],
+    ['...', 'spread / rest'],
+  ];
+  const found = banned.filter(([token]) => src.indexOf(token) !== -1)
+    .map(([, why]) => why);
+  if (found.length) throw new Error('uses ' + found.join(', '));
+
+  if (/^\s*(const|let)\s/m.test(src)) throw new Error('uses const or let');
+  if (/\bclass\s+[A-Z]/.test(src)) throw new Error('uses a class declaration');
+});
+
+check('the loader cannot hang silently', () => {
+  const src = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  if (!/request\.timeout\s*=/.test(src)) throw new Error('the request has no timeout');
+  if (!/onerror\s*=\s*function/.test(src)) throw new Error('no ontimeout/onerror handling');
+  if (!/window\.onerror/.test(src)) throw new Error('nothing reports a thrown error on screen');
+});
+
 check('the version shown matches package.json', () => {
   const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
   const g = makeGame(bank);

@@ -2,14 +2,15 @@
 
 /* Remote Trivia. One remote, one screen, no pairing.
    Everything below is deliberately ES2017-level: no optional chaining, no
-   nullish coalescing, no structuredClone. Old TV browser engines choke on
-   those and a syntax error here means a black screen on the television. */
+   nullish coalescing, no structuredClone, no fetch. Old television engines
+   choke on those, and a failure here means a screen stuck on "Loading
+   questions" with no console to ask about it. */
 
 // ------------------------------------------------------------------ tuning
 
 // Kept in step with package.json by a test, since nothing at runtime can read
 // package.json to derive it.
-var VERSION = '0.1.7';
+var VERSION = '0.1.9';
 
 var TUNING = {
   speedBaseSeconds: 45,        // open question in the design doc: try 45 vs 60
@@ -909,6 +910,9 @@ function view() {
       return versionTag() +
         '<h1>Could not load questions</h1>' +
         '<div class="note">' + esc(loadError) + '</div>' +
+        '<div class="note diag">' +
+        esc((typeof navigator !== 'undefined' && navigator.userAgent) || '') +
+        '</div>' +
         hintBar([['OK', 'retry']]);
 
     case 'attract':
@@ -1537,22 +1541,88 @@ function readNameField() {
 
 // -------------------------------------------------------------------- boot
 
+// XMLHttpRequest rather than fetch. A webOS television can be running an engine
+// as old as Chromium 38, which has no fetch at all - and because the call sat at
+// the top of a promise chain, a missing fetch threw before any promise existed,
+// so nothing caught it. The script died with the screen still reading "Loading
+// questions", which is exactly as informative as it sounds.
 function loadBank() {
   loadError = null;
   renderSetup();
-  fetch('/questions.json')
-    .then(function (r) {
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      return r.json();
-    })
-    .then(function (raw) {
+
+  var settled = false;
+
+  function fail(reason) {
+    if (settled) return;
+    settled = true;
+    loadError = reason;
+    renderSetup();
+  }
+
+  var request;
+  try {
+    request = new XMLHttpRequest();
+  } catch (e) {
+    fail('this browser has no XMLHttpRequest');
+    return;
+  }
+
+  request.onreadystatechange = function () {
+    if (settled || request.readyState !== 4) return;
+
+    // Some television browsers proxy requests and report status 0 on success.
+    var served = request.status === 200 ||
+      (request.status === 0 && request.responseText);
+    if (!served) {
+      fail('questions.json returned HTTP ' + request.status);
+      return;
+    }
+
+    var raw;
+    try {
+      raw = JSON.parse(request.responseText);
+    } catch (parseError) {
+      fail('questions.json did not parse: ' + parseError.message);
+      return;
+    }
+
+    try {
       bank = indexBank(raw);
-      renderSetup();
-    })
-    .catch(function (e) {
-      loadError = e.message;
-      renderSetup();
-    });
+    } catch (indexError) {
+      fail('could not read the question bank: ' + indexError.message);
+      return;
+    }
+
+    settled = true;
+    renderSetup();
+  };
+
+  request.onerror = function () { fail('could not reach questions.json'); };
+  request.ontimeout = function () { fail('questions.json timed out'); };
+
+  try {
+    request.open('GET', 'questions.json', true);
+    request.timeout = 30000;      // never hang on "Loading questions" again
+    request.send();
+  } catch (sendError) {
+    fail('could not request questions.json: ' + sendError.message);
+  }
+}
+
+// A television has no console and no developer tools. Anything that would
+// otherwise kill the script silently gets painted where it can be read off the
+// screen, along with the user agent, since knowing which engine it is tends to
+// be most of the answer.
+function fatal(message) {
+  var el = document.getElementById('screen');
+  if (!el) return;
+  var agent = (typeof navigator !== 'undefined' && navigator.userAgent) || 'unknown';
+  el.innerHTML =
+    '<div class="version">v' + esc(VERSION) + '</div>' +
+    '<h1>Something went wrong</h1>' +
+    '<div class="note">' + esc(message) + '</div>' +
+    '<div class="note diag">' + esc(agent) + '</div>' +
+    '<div class="note">Reload the page to start again.</div>';
 }
 
 // ----------------------------------------------------------- pointer input
@@ -1714,5 +1784,12 @@ function relayout() {
 
 window.addEventListener('resize', relayout);
 window.addEventListener('orientationchange', relayout);
+
+// Installed before the first load, so a failure during boot is reported rather
+// than leaving the screen reading "Loading questions" for ever.
+window.onerror = function (message, source, line) {
+  fatal(String(message) + (line ? '  (line ' + line + ')' : ''));
+  return false;
+};
 
 loadBank();

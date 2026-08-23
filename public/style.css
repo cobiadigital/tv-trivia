@@ -534,3 +534,13 @@ h2 {
 @media (max-height: 550px) and (max-width: 599px) {
   .opt { min-height: 2.5rem; margin-bottom: 0.35rem; font-size: 1rem; }
 }
+
+/* Diagnostics on the error screens. Small, dim, and allowed to break anywhere,
+   since a user agent string has no spaces to wrap at. */
+.note.diag {
+  font-size: 0.95rem;
+  opacity: 0.65;
+  word-break: break-all;
+  max-width: 70ch;
+  margin-top: 0.4rem;
+}

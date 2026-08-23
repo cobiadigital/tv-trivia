@@ -27,8 +27,14 @@ const TYPES = {
   '.png': 'image/png',
 };
 
+let breakQuestions = false;      // flipped by the boot tests below
+
 const server = createServer(async (req, res) => {
   const path = req.url === '/' ? '/index.html' : req.url.split('?')[0];
+  if (breakQuestions && path.indexOf('questions.json') !== -1) {
+    res.writeHead(500).end('deliberately broken');
+    return;
+  }
   try {
     const body = await readFile(join(PUBLIC, path));
     res.writeHead(200, { 'content-type': TYPES[extname(path)] || 'application/octet-stream' });
@@ -280,6 +286,63 @@ for (const [label, width, height] of VIEWPORTS) {
   expect(dead.length === 0, `${label}: every option answers a finger ${JSON.stringify(dead)}`);
   if (needScroll) console.log(`       (${needScroll} of ${optionCount} options need a scroll here)`);
 
+  await ctx.close();
+}
+
+// --------------------------------------------------------------------- boot
+
+// A television has no console. Every one of these paths used to end in a screen
+// reading "Loading questions" with nothing further to say.
+console.log('\nboot');
+
+async function boot(opts) {
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+  const page = await ctx.newPage();
+  if (opts && opts.noFetch) {
+    // Stand in for a webOS engine old enough to have no fetch at all.
+    await page.addInitScript(() => {
+      try { delete window.fetch; } catch (e) { window.fetch = undefined; }
+    });
+  }
+  const errs = [];
+  page.on('pageerror', (e) => errs.push(e.message));
+  await page.goto(base, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(250);
+  const state = await page.evaluate(() => ({
+    screen: currentScreen(),
+    fetchType: typeof fetch,
+    text: document.getElementById('screen').textContent,
+  }));
+  await ctx.close();
+  return { state, errs };
+}
+
+{
+  let r = await boot();
+  expect(r.state.screen === 'attract', 'a normal load reaches the attract screen');
+  expect(r.errs.length === 0, `no page errors on a normal load ${JSON.stringify(r.errs)}`);
+
+  r = await boot({ noFetch: true });
+  expect(r.state.fetchType === 'undefined', 'the no-fetch engine really has no fetch');
+  expect(r.state.screen === 'attract', 'it still loads with no fetch at all');
+  expect(r.errs.length === 0, `no page errors without fetch ${JSON.stringify(r.errs)}`);
+
+  breakQuestions = true;
+  r = await boot();
+  breakQuestions = false;
+  expect(r.state.screen === 'error', 'a failing questions.json reaches the error screen, not a hang');
+  expect(/HTTP 500/.test(r.state.text), 'the error screen says what happened');
+  expect(/Mozilla|Chrome|AppleWebKit/.test(r.state.text),
+    'the error screen reports the user agent, since there is no console to ask');
+
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+  const page = await ctx.newPage();
+  await page.goto(base, { waitUntil: 'networkidle' });
+  await page.evaluate(() => { window.onerror('Boom went the engine', 'app.js', 42); });
+  const text = await page.evaluate(() => document.getElementById('screen').textContent);
+  expect(/Something went wrong/.test(text) && /Boom went the engine/.test(text),
+    'a thrown error is painted on screen rather than dying silently');
+  expect(/line 42/.test(text), 'and says where it came from');
   await ctx.close();
 }
 
