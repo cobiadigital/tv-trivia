@@ -33,7 +33,9 @@
 - [x] A web app manifest, so an installed copy runs standalone by declaration
       rather than by whatever the platform assumes
 - [x] Answer options two-up when the phone is held sideways
-- [x] Type that shrinks to the space actually available, measured per render
+- [x] Type that shrinks to the space actually available, measured per render,
+      continuously rather than in three fixed steps — so a phone held sideways
+      shows the whole board instead of half of it
 - [x] No repeated questions within a session
 - [x] Free-answer filter for the speed round and final
 - [x] Headless test harness that plays full games and asserts the rules
@@ -88,9 +90,9 @@
   has reported it; giving every `var()` a literal fallback is the fix if it
   turns up.
 
-- On the smallest screens (360×640) with an unusually long question, the last
-  option needs a short scroll inside the content region. It is reachable and
-  cannot be hidden behind the control bar, but it does not all fit at once.
+- Below about 280px of viewport height the board cannot be made to fit even at
+  the smallest type, and the content region scrolls again. Every real phone is
+  well clear of that.
 
 - The judge screen drops the score strip when it is showing a question, because
   the two together overflow a 1080p screen. Scores are one press away on the

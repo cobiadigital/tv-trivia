@@ -10,7 +10,7 @@
 
 // Kept in step with package.json by a test, since nothing at runtime can read
 // package.json to derive it.
-var VERSION = '0.1.10';
+var VERSION = '0.1.11';
 
 var TUNING = {
   speedBaseSeconds: 45,        // open question in the design doc: try 45 vs 60
@@ -848,6 +848,46 @@ function render() {
   el.innerHTML = view();
   layoutShell();
   shrinkToFit();
+  fitToScreen();
+}
+
+// The density steps above are coarse and bottom out after three of them, at
+// which point the content region simply scrolled. On a phone held sideways -
+// roughly 400px tall once the browser has taken its share - that meant half the
+// board below the fold. Everything here is sized in rem, so scaling the root
+// font size scales the whole layout with it, and a couple of measured passes
+// land on the largest size that actually fits.
+//
+// Televisions are left alone: their type is sized to be read from a sofa, and
+// the density steps plus the fit test already guarantee a whole screen.
+var MIN_FIT_SCALE = 0.62;
+
+function fitToScreen() {
+  var root = document.documentElement;
+  if (!root || !root.style || !window.getComputedStyle) return;
+
+  root.style.fontSize = '';                   // always measure from the base
+  var scroller = document.querySelector('.screen-scroll');
+  if (!scroller || !scroller.scrollHeight || !scrollsItsOwnContent(scroller)) return;
+
+  var base = parseFloat(getComputedStyle(root).fontSize) || 18;
+  var scale = 1;
+
+  // Shrinking the root also shrinks the padding and the gaps, so the space to
+  // fill grows as the content shrinks. Re-measure rather than solve for it.
+  for (var pass = 0; pass < 4; pass++) {
+    if (scroller.scrollHeight <= scroller.clientHeight + 1) break;
+    scale = Math.max(MIN_FIT_SCALE,
+      scale * (scroller.clientHeight / scroller.scrollHeight));
+    root.style.fontSize = (base * scale) + 'px';
+    if (scale <= MIN_FIT_SCALE) break;
+  }
+}
+
+// True only where the shell is active, which is the small-screen layout.
+function scrollsItsOwnContent(scroller) {
+  var overflow = getComputedStyle(scroller).overflowY;
+  return overflow === 'auto' || overflow === 'scroll';
 }
 
 // Every view emits its hint bar last. Move everything ahead of it into its own
@@ -1594,6 +1634,7 @@ function renderSetup() {
   document.getElementById('screen').innerHTML = view();
   layoutShell();
   shrinkToFit();
+  fitToScreen();
   focusNameField();
 }
 
