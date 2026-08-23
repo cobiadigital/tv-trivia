@@ -174,6 +174,16 @@ that only runs locally — so this exits 0 with a note when it isn't installed:
 npm i -D playwright && npx playwright install chromium
 ```
 
+## Version
+
+The version shows in small type at the top right of the title screen — on the
+loading and error states too, which is when it is most worth being able to read
+it off a television.
+
+It lives in two places, `VERSION` in `public/app.js` and `version` in
+`package.json`, because nothing at runtime can read `package.json` to derive it.
+`npm test` fails if the two drift apart. Bump both together.
+
 ## Deploying
 
 Cloudflare Workers Builds is connected to this repository. Merging to `main`

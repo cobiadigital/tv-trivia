@@ -7,6 +7,10 @@
 
 // ------------------------------------------------------------------ tuning
 
+// Kept in step with package.json by a test, since nothing at runtime can read
+// package.json to derive it.
+var VERSION = '0.1.6';
+
 var TUNING = {
   speedBaseSeconds: 45,        // open question in the design doc: try 45 vs 60
   speedBonusPer10Behind: 5,
@@ -720,6 +724,12 @@ function hintChips(label) {
   return out.length ? out : [[label, null]];
 }
 
+// On the title screen only - including its loading and error states, which are
+// the same screen and exactly when knowing the version is most useful.
+function versionTag() {
+  return '<div class="version">v' + esc(VERSION) + '</div>';
+}
+
 function hintBar(pairs) {
   var html = pairs.map(function (p) {
     var chips = hintChips(p[0]).map(function (c) {
@@ -871,15 +881,18 @@ function view() {
     // ------------------------------------------------------------- boot
 
     case 'loading':
-      return '<h1>Remote Trivia</h1><div class="note">Loading questions…</div>';
+      return versionTag() +
+        '<h1>Remote Trivia</h1><div class="note">Loading questions…</div>';
 
     case 'error':
-      return '<h1>Could not load questions</h1>' +
+      return versionTag() +
+        '<h1>Could not load questions</h1>' +
         '<div class="note">' + esc(loadError) + '</div>' +
         hintBar([['OK', 'retry']]);
 
     case 'attract':
-      return '<div class="eyebrow">One remote. One screen.</div>' +
+      return versionTag() +
+        '<div class="eyebrow">One remote. One screen.</div>' +
         '<h1>Remote Trivia</h1>' +
         '<div class="note">' + bank.questions.length + ' questions loaded across ' +
         Object.keys(bank.byCat).length + ' categories. ' +

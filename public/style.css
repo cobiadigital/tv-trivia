@@ -46,6 +46,18 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 90vh;
+  position: relative;      /* anchors the version tag to the safe area */
+}
+
+/* Title screen only. Sits inside the overscan-safe margin, not the raw corner
+   of the panel, so a television does not crop it. */
+.version {
+  position: absolute;
+  top: 0;
+  right: 0;
+  font-size: 0.9rem;
+  letter-spacing: 0.1em;
+  color: var(--dim);
 }
 
 /* ---------------------------------------------------------------- headings */
