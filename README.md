@@ -49,9 +49,14 @@ across Tizen, webOS, Fire TV and Android TV.
 would put every deployment behind OpenTDB's per-IP rate limit from a shared
 Cloudflare egress address, which is a bad trade for content that never changes.
 
+2,270 questions across 24 categories, every one of which (bar Science: Gadgets)
+carries at least four questions at each of easy, medium and hard — which is
+what makes the ledger's difficulty weighting mean anything.
+
 Questions carry a `speakable` flag computed at load: the free-answer rounds
 (speed round and final) skip anything that only makes sense with four options
-on screen, and anything whose answer is too long to judge by ear.
+on screen, and anything whose answer is too long to judge by ear. 1,859
+questions qualify.
 
 ## Tests
 

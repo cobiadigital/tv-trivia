@@ -773,7 +773,7 @@ function view() {
         '<div class="note">' + bank.questions.length + ' questions loaded across ' +
         Object.keys(bank.byCat).length + ' categories. ' +
         'Whoever answered last holds the remote and reads the next question aloud.</div>' +
-        hintBar([['OK', 'start'], ['←→', 'navigate'], ['Back', 'undo']]);
+        hintBar([['OK', 'start']]);
 
     // ------------------------------------------------------------ setup
 

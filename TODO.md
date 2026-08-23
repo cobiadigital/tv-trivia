@@ -35,9 +35,11 @@
 
 - [ ] **Handicaps.** Design doc has the full ladder. Difficulty shift is the
       cleanest lever and is one line in `DIFFICULTY_FOR_VALUE`.
-- [ ] **Bigger question bank.** 24 OpenTDB categories is thin for repeat play,
-      and some tiers are shallow. Options: harvest more sources, or write
-      house questions.
+- [ ] **Bigger question bank.** 2,270 questions across 24 OpenTDB categories,
+      1,859 of them usable in the free-answer rounds. A four-player game uses
+      roughly 100, so repeat play will start recycling categories long before
+      it recycles questions. Options: harvest more sources, or write house
+      questions.
 - [ ] **D1.** Only worth it if the bank outgrows a static file or the game
       needs to remember anything between sessions. It currently needs neither,
       and adding it means dashboard configuration.
