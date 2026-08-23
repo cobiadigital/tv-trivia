@@ -170,11 +170,24 @@ than just shrinking:
 - After each render, `shrinkToFit` measures whether the question screen actually
   fits and steps the type scale down until it does. Question and option lengths
   vary too much, across too many viewports, for a fixed budget to hold.
+- Those steps are coarse and bottom out after three of them, so `fitToScreen`
+  then scales continuously: everything is sized in `rem`, so scaling the root
+  font size scales the layout with it, and a couple of measured passes land on
+  the largest size that still fits. Floored at 0.62 of base, below which
+  scrolling comes back — a viewport that short is beyond saving.
+- The control bar is **excluded** from that shrinking. It is sized in `px`, with
+  44px chips, because it is the thing you have to hit to use the game: shrinking
+  the board to fit must never shrink the controls out from under a thumb. Answer
+  options carry a 34px floor for the same reason.
+- Televisions are left alone. Their type is sized to be read from a sofa, and
+  the density steps plus the fit test already guarantee a whole screen, so
+  `fitToScreen` returns early unless the phone shell is active.
 
 The root font size is fixed on phones rather than scaled to viewport height:
 `2.2vh` is right for a panel and much too large for a phone.
 
-Checked at 393×659, 402×734, 440×782, 360×640 and their landscape rotations.
+Checked at 393×659, 402×734, 440×782, 360×640 and their landscape rotations,
+each asserting the whole board fits with nothing left below the fold.
 Playwright has no iPhone 17 Pro profile, so those brackets straddle it rather
 than matching it exactly.
 

@@ -220,7 +220,10 @@ for (const [label, width, height] of VIEWPORTS) {
       if (r.width < 32 || r.height < 32) small.push(el.textContent.trim());
     });
     const style = getComputedStyle(document.body);
+    const scroller = document.querySelector('.screen-scroll');
     return {
+      contentOverflow: scroller ? scroller.scrollHeight - scroller.clientHeight : 0,
+      rootSize: getComputedStyle(document.documentElement).fontSize,
       overflowX: doc.scrollWidth - doc.clientWidth,
       clipped: doc.scrollHeight > doc.clientHeight && style.overflowY !== 'auto',
       hintsOnScreen: hints.bottom <= doc.clientHeight + 1 && hints.top >= 0,
@@ -232,6 +235,11 @@ for (const [label, width, height] of VIEWPORTS) {
   });
 
   expect(m.screen === 'question', `${label}: reaches a question`);
+  // The board is shrunk to fit rather than left to scroll: on a phone held
+  // sideways half of it used to sit below the fold.
+  expect(m.contentOverflow <= 1,
+    `${label}: the whole board fits without scrolling ` +
+    `(over by ${m.contentOverflow}px at root ${m.rootSize})`);
   expect(m.overflowX === 0, `${label}: no horizontal overflow (${m.overflowX}px)`);
   expect(!m.clipped, `${label}: overflowing content scrolls instead of being clipped`);
   expect(m.hintsOnScreen, `${label}: the control bar stays on screen`);

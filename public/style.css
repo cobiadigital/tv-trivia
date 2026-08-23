@@ -410,6 +410,7 @@ h2 {
   .opt {
     font-size: 1.15rem;
     min-height: 3.1rem;
+    min-height: max(3.1rem, 34px);
     padding: 0.6rem 0.8rem;
     margin-bottom: 0.55rem;
     border-width: 3px;
@@ -418,6 +419,7 @@ h2 {
   .opt.sel { box-shadow: 0 0 0 4px rgba(255, 210, 63, 0.28); }
 
   .tile {
+    min-height: 34px;
     font-size: 1.4rem;
     min-width: 3.6rem;
     padding: 0.75rem 0.9rem;
@@ -440,13 +442,13 @@ h2 {
   .qblock.dense-1 .question { font-size: 1.5rem; }
   .qblock.dense-2 .question { font-size: 1.35rem; }
   .qblock.dense-3 .question { font-size: 1.2rem; }
-  .qblock.dense-1 .opt { font-size: 1.1rem; min-height: 2.9rem; }
+  .qblock.dense-1 .opt { font-size: 1.1rem; min-height: max(2.9rem, 34px); }
   .qblock.dense-2 .opt {
-    font-size: 1.05rem; min-height: 2.7rem;
+    font-size: 1.05rem; min-height: max(2.7rem, 34px);
     padding: 0.45rem 0.7rem; line-height: 1.25;
   }
   .qblock.dense-3 .opt {
-    font-size: 1rem; min-height: 2.6rem;
+    font-size: 1rem; min-height: max(2.6rem, 34px);
     padding: 0.35rem 0.6rem; line-height: 1.2; margin-bottom: 0.4rem;
   }
   .qblock.dense-3 .question { line-height: 1.15; }
@@ -480,22 +482,30 @@ h2 {
   .hints {
     flex: 0 0 auto;
     margin-top: 0;
-    font-size: 1rem;
-    padding-top: 0.7rem;
-    padding-bottom: 0.1rem;
+    font-size: 16px;
+    padding-top: 12px;
+    padding-bottom: 2px;
   }
-  .hint { margin-right: 0.85rem; margin-bottom: 0.2rem; }
-  .hint-label { font-size: 0.9rem; margin-left: 0.3rem; }
-  .hint-key { min-width: 2.4rem; min-height: 2.4rem; padding: 0 0.45rem; }
+
+  /* Fixed in px on purpose. These are the controls; shrinking the board to fit
+     must never shrink what you have to hit to use it. */
+  .hint-key {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 8px;
+    font-size: 15px;
+  }
+  .hint { margin-right: 14px; margin-bottom: 3px; }
+  .hint-label { font-size: 14px; margin-left: 5px; }
 }
 
 /* Narrow phones. The control bar wrapped to three rows here - a quarter of the
    screen - which pushed the last option underneath it. Shrink the labels and
    the gaps rather than the chips, so the touch targets stay full size. */
 @media (max-width: 420px) {
-  .hint { margin-right: 0.6rem; }
-  .hint-label { font-size: 0.8rem; margin-left: 0.25rem; }
-  .hint-key { padding: 0 0.35rem; }
+  .hint { margin-right: 10px; }
+  .hint-label { font-size: 13px; margin-left: 4px; }
+  .hint-key { padding: 0 6px; font-size: 14px; }
 
   .statusbar { margin-bottom: 0.7rem; }
   .statusbar .slot { font-size: 0.85rem; margin-right: 0.7rem; }
@@ -531,19 +541,19 @@ h2 {
     width: calc(50% - 0.3rem);
     margin-right: 0.6rem;
     margin-bottom: 0.5rem;
-    min-height: 2.6rem;
+    min-height: max(2.6rem, 34px);
     font-size: 1.05rem;
   }
   .opt:nth-child(2n) { margin-right: 0; }
 
   .qblock.dense-1 .opt,
   .qblock.dense-2 .opt,
-  .qblock.dense-3 .opt { min-height: 2.5rem; font-size: 1rem; }
+  .qblock.dense-3 .opt { min-height: max(2.5rem, 34px); font-size: 1rem; }
 }
 
 /* Sideways on something narrow enough that two columns would not fit. */
 @media (max-height: 550px) and (max-width: 599px) {
-  .opt { min-height: 2.5rem; margin-bottom: 0.35rem; font-size: 1rem; }
+  .opt { min-height: max(2.5rem, 34px); margin-bottom: 0.35rem; font-size: 1rem; }
 }
 
 /* Diagnostics on the error screens. Small, dim, and allowed to break anywhere,
