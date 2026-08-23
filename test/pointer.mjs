@@ -165,6 +165,7 @@ const tooSmall = await tp.evaluate(() => {
   return bad;
 });
 expect(tooSmall.length === 0, 'every touch target clears 32px: ' + JSON.stringify(tooSmall));
+await touch.close();
 expect(errors.length === 0, 'no page errors: ' + errors.join('; '));
 // ---------------------------------------------------------------- small screens
 
@@ -286,6 +287,71 @@ for (const [label, width, height] of VIEWPORTS) {
   expect(dead.length === 0, `${label}: every option answers a finger ${JSON.stringify(dead)}`);
   if (needScroll) console.log(`       (${needScroll} of ${optionCount} options need a scroll here)`);
 
+  await ctx.close();
+}
+
+// ------------------------------------------------------------- number keys
+
+// The LG Magic Remote moves a pointer with its D-pad and webOS keeps the arrow
+// keys for itself, so numbers may be the only keys that reach the page. Every
+// screen with a list has to be drivable by them alone.
+console.log('\nnumber keys');
+
+{
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+  const page = await ctx.newPage();
+  const errs = [];
+  page.on('pageerror', (e) => errs.push(e.message));
+  await page.goto(base, { waitUntil: 'networkidle' });
+
+  const at = () => page.evaluate(() => currentScreen());
+  const read = (fn) => page.evaluate(fn);
+  const key = (k) => page.keyboard.press(k);
+
+  expect(await read(() => document.getElementById('lastkey').textContent) === '',
+    'the key readout is blank until a key arrives');
+  await key('3');
+  expect(/3 \u00b7 51/.test(await read(() => document.getElementById('lastkey').textContent)),
+    'the key readout names the key and its code, since a TV has no console');
+
+  await key('Enter');
+  await key('2');
+  expect(await at() === 'setupName' && await read(() => setup.count) === 2,
+    'a number picks the player count outright');
+
+  await key('Enter'); await key('Enter');
+  expect(await at() === 'draft', 'reached the draft');
+  // Walk up the list: a number for an already-vetoed category is correctly
+  // ignored, so pressing the same one twice would spin here for ever.
+  for (let n = 1; n <= 9 && await at() === 'draft'; n++) await key(String(n));
+  expect(await at() === 'sectionIntro', 'the whole draft is drivable by number');
+
+  await key('Enter');
+  await key('3');
+  expect(await at() === 'question' && await read(() => S.q.value) === 3,
+    'on the wager screen the number is the wager, not a position');
+
+  // Nothing may be locked before it has been revealed.
+  await key('2');
+  expect(await at() === 'question' && await read(() => S.q.lockedIdx) === null,
+    'a number for an unrevealed option is ignored');
+  await key('Enter'); await key('Enter');
+  await key('4');
+  expect(await at() === 'question', 'still ignored with only A and B showing');
+  await key('2');
+  expect(await at() === 'judge' && await read(() => S.q.lockedIdx) === 1,
+    'pressing 2 locks option B');
+  await key('Backspace');
+  expect(await at() === 'question', 'Back undoes a mis-keyed number');
+
+  // Digits type a multi-digit final wager rather than stepping to it.
+  await page.evaluate(() => { startFinal(); render(); handle('OK'); });
+  await key('1'); await key('2');
+  expect(await read(() => S.final.wagerValue) === 12, 'digits build a two-digit wager');
+  await key('0');
+  expect(await read(() => S.final.wagerValue) === 0, 'and 0 clears an overshoot');
+
+  expect(errs.length === 0, `no page errors driving by number ${JSON.stringify(errs)}`);
   await ctx.close();
 }
 
