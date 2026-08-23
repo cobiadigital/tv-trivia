@@ -201,6 +201,7 @@ h2 {
   font-size: 7rem;
   font-weight: 800;
   line-height: 1;
+  margin-bottom: 1.4rem;
   font-variant-numeric: tabular-nums;
 }
 .clock.low { color: var(--bad); }

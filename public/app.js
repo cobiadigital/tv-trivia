@@ -154,7 +154,16 @@ function drawQuestion(categoryId, difficulty, opts) {
   }
   if (!found) found = pick(bank.questions);
 
-  if (found) used.push(found.id);
+  // Rather than crash on an exhausted bank, allow a repeat. Only reachable in
+  // a session long enough to burn through every eligible question.
+  if (!found) {
+    var fallback = wantSpeakable
+      ? bank.questions.filter(function (q) { return q.speakable; })
+      : bank.questions;
+    found = fallback[Math.floor(Math.random() * fallback.length)];
+  }
+
+  if (used.indexOf(found.id) === -1) used.push(found.id);
   return found;
 }
 
@@ -253,12 +262,21 @@ function startDraft() {
     eligible = Object.keys(bank.byCat).map(Number);
   }
 
+  var pool = shuffle(eligible).slice(0, poolSize);
+
   S.draft = {
-    pool: shuffle(eligible).slice(0, poolSize),
+    pool: pool,
+    // Everyone vetoes one, unless the bank is too thin to survive that many.
+    vetoes: Math.max(0, Math.min(S.players.length, pool.length - perPlayer)),
     vetoed: [],
     cursor: 0,
     vetoerTurn: 0
   };
+  if (!S.draft.vetoes) {
+    S.categories = pool;
+    beginSection();
+    return;
+  }
   S.screen = 'draft';
 }
 
@@ -270,7 +288,7 @@ function applyVeto() {
   d.vetoed.push(id);
   d.vetoerTurn++;
 
-  if (d.vetoerTurn >= S.players.length) {
+  if (d.vetoerTurn >= d.vetoes) {
     S.categories = d.pool.filter(function (id) {
       return d.vetoed.indexOf(id) === -1;
     });
@@ -678,9 +696,9 @@ function playerStrip(activeIdx, showLedger) {
   return html + '</div>';
 }
 
-function statusBar(extra) {
-  var sec = section();
-  var slots = ['<div class="slot">Section <b>' + sec.number + '</b></div>'];
+function statusBar(extra, label) {
+  var slots = ['<div class="slot">' +
+    (label ? label : 'Section <b>' + section().number + '</b>') + '</div>'];
   if (extra) slots = slots.concat(extra.map(function (t) {
     return '<div class="slot">' + t + '</div>';
   }));
@@ -801,7 +819,7 @@ function view() {
         tiles += '<div class="tile wide' + (dead ? ' gone' : '') +
           (i === d.cursor && !dead ? ' sel' : '') + '">' + esc(bank.catName[id]) + '</div>';
       }
-      return statusBar(['Veto <b>' + (d.vetoerTurn + 1) + '</b> of <b>' + S.players.length + '</b>']) +
+      return statusBar(['Veto <b>' + (d.vetoerTurn + 1) + '</b> of <b>' + d.vetoes + '</b>']) +
         '<h2>' + esc(vetoer.name) + ', kill one category</h2>' +
         '<div class="tiles">' + tiles + '</div>' +
         '<div class="note">What survives is the category list for the whole section. ' +
@@ -914,7 +932,7 @@ function view() {
       var sp = S.speed;
       var q = sp.q;
       return statusBar(['<b>' + esc(S.players[speedPlayerIdx()].name) + '</b>',
-                        'Correct <b>' + sp.correct + '</b>']) +
+                        'Correct <b>' + sp.correct + '</b>'], 'Speed Round') +
         '<div class="clock' + (sp.secondsLeft <= 5 ? ' low' : '') + '">' + sp.secondsLeft + '</div>' +
         '<div class="question">' + esc(q.q) + '</div>' +
         (sp.revealed
@@ -1352,7 +1370,11 @@ document.addEventListener('keydown', function (e) {
   handle(a);
 });
 
-// A tap anywhere counts as OK, so the game is testable on a phone.
-document.addEventListener('click', function () { handle('OK'); });
+// A tap anywhere counts as OK, so the game is testable on a phone. Clicks
+// synthesised from an Enter keypress carry detail 0; ignoring those stops a
+// TV remote from advancing two screens on one press.
+document.addEventListener('click', function (e) {
+  if (e.detail > 0) handle('OK');
+});
 
 loadBank();

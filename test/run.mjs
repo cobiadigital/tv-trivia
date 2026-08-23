@@ -101,6 +101,20 @@ check('every draftable category can supply all three difficulties', () => {
   }
 });
 
+check('a bank too thin to veto still yields a playable section', () => {
+  // Two categories total: not enough to hand every player a veto.
+  const keep = new Set(bank.categories.slice(0, 2).map((c) => c.id));
+  const thin = {
+    categories: bank.categories.filter((c) => keep.has(c.id)),
+    questions: bank.questions.filter((q) => keep.has(q.c)),
+  };
+  const r = playGame(thin, { pCorrect: 0.5, rng: mulberry(42) });
+  for (const p of r.g.S.players) {
+    if (p.ledger.length) throw new Error('ledger not emptied on a thin bank');
+  }
+  if (!r.g.S.categories.length) throw new Error('every category was vetoed away');
+});
+
 check('undo walks a game back to the start', () => {
   const g = makeGame(bank);
   g.press('OK'); g.press('OK');
