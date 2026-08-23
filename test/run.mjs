@@ -46,6 +46,22 @@ for (const p of [0.0, 0.25, 0.5, 0.75, 1.0]) {
 console.log(`  (${totals.questions} questions asked, ${totals.steals} steals, ` +
             `${totals.sweeps} sweeps, ${totals.earlyLocks} early locks)`);
 
+console.log('\nplayer counts');
+for (const names of [['Ann', 'Bo'], ['Ann', 'Bo', 'Cy']]) {
+  for (let seed = 1; seed <= 4; seed++) {
+    check(`${names.length} players seed=${seed}`, () => {
+      const r = playGame(bank, { names, pCorrect: 0.5, rng: mulberry(seed * 104729) });
+      const s = r.g.S;
+      if (s.players.length !== names.length) throw new Error('wrong player count');
+      for (const p of s.players) if (p.ledger.length) throw new Error('ledger not emptied');
+      // With two players the stealer is always the other player, never the misser.
+      if (names.length === 2 && r.steals === 0 && r.g.S.usedQuestions.length > 10) {
+        throw new Error('two-player game never offered a steal');
+      }
+    });
+  }
+}
+
 console.log('\nrules');
 
 check('ledger values map to the documented difficulty', () => {

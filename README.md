@@ -68,3 +68,11 @@ design doc.
 
 Cloudflare Workers Builds is connected to this repository. Merging to `main`
 triggers the build and deploy; `wrangler.toml` is the whole configuration.
+
+One thing to check on the first deploy: `name = "tv-trivia"` in `wrangler.toml`
+has to match the Worker the build is attached to. If the existing Worker is
+called something else, change that line — otherwise the deploy quietly creates
+a second Worker under a different `workers.dev` hostname.
+
+There is nothing else to configure. No D1, no KV, no secrets, no bindings
+beyond the static assets directory.

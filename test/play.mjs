@@ -60,7 +60,8 @@ export function playGame(bankJson, opts = {}) {
 
   // Attract -> setup -> names
   press('OK');
-  press('OK');                       // accept 4 players
+  for (let i = names.length; i < 4; i++) press('LEFT');   // 4 is the default
+  press('OK');
   for (let i = 0; i < names.length; i++) {
     for (const ch of names[i].toUpperCase()) {
       const r = ctxFindKey(ch);
