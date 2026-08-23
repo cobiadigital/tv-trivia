@@ -20,12 +20,16 @@ screen *after* the player has spoken, and the host just presses Correct or Wrong
 
 ## Structure
 
-| Round | Questions | Format | Wager pool |
-|---|---|---|---|
-| Section 1 | 4 per player | Multiple choice, paced reveal | 1, 2, 3, 4 |
-| Section 2 | 5 per player | Multiple choice, paced reveal | 2, 3, 4, 5, 6 |
-| Speed Round | as many as fit | Free answer, timed | flat 1 each |
-| Final Question | 1 | Free answer | 0 to cap |
+| Round | Questions | Difficulty | Format | Wager pool |
+|---|---|---|---|---|
+| Section 1 | 4 per player | Easy | Multiple choice, paced reveal | 1, 2, 3, 4 |
+| Speed Round | as many as fit | Medium | Free answer, timed | flat 1 each |
+| Section 2 | 5 per player | Hard | Multiple choice, paced reveal | 2, 3, 4, 5, 6 |
+| Final Question | 1 | Medium | Free answer | 0 to cap |
+
+The speed round sits between the two sections rather than after them. It
+breaks up the two long multiple-choice stretches, and its comeback weighting
+lands at the halfway mark where it can still change the game.
 
 Turn order **reverses** between Section 1 and Section 2. Going last is a small
 edge, since you have watched three players burn questions first, and flipping
@@ -63,30 +67,33 @@ On your turn you see the category, then choose which unspent value to put on it
 value is burned and scores nothing.
 
 This is the whole strategy layer: save your 6 for a category you own, dump your
-2 on the one you dread. It also means every player answers the same number of
+2 on the one you dread. Every value has to go somewhere, so a category you know
+nothing about is where the small numbers get spent. It also means every player answers the same number of
 questions per section, so no one gets shorted.
 
 The section ends when every player's ledger is empty.
 
 ---
 
-## Difficulty weighting
+## Difficulty by round
 
-The wagered value determines how hard the question is. OpenTDB tags every
+Difficulty is a property of the round, not of the wager. OpenTDB tags every
 question easy, medium, or hard, so this is a filter on the pull, not new content.
 
-| Ledger value | Difficulty drawn |
+| Round | Difficulty |
 |---|---|
-| 1 | easy |
-| 2 | easy |
-| 3 | medium |
-| 4 | medium |
-| 5 | hard |
-| 6 | hard |
+| Section 1 | easy |
+| Speed Round | medium |
+| Section 2 | hard |
+| Final, sudden death | medium |
 
-This is the mechanic that makes the ledger mean something. Without it, a 6 is
-just a bigger number and the right play is always to bet high on your best
-category with no downside. With it, betting big is genuinely dangerous.
+The game ramps rather than stepping, and every player in a section faces the
+same difficulty as everyone else, so a section's scores are directly comparable.
+
+The wager is then purely an allocation problem: you have to spend 1, 2, 3, 4
+across four categories, so the decision is which category deserves your 4 and
+which one only gets the 1. There is no risk premium for betting high, which is
+the tradeoff for making the sections legible.
 
 ---
 
@@ -122,10 +129,17 @@ A wrong answer ends your run and passes the turn.
 When a player misses, the **next player in turn order** gets one shot at the
 same question, with the remaining options still on screen.
 
-- The steal is worth **half the burned value, rounded up**
+- A steal is worth a flat **1 point in Section 1, 2 points in Section 2**,
+  regardless of what the player who missed had wagered
 - The stealer spends nothing from their own ledger
 - Only one steal attempt per question, and a failed steal costs nothing
 - After the steal resolves, play continues to the next player normally
+
+**The correct answer stays hidden until the steal is settled.** A miss shows
+only that it was a miss, with the wrong answer marked. Revealing the answer
+first would hand the steal to the next player, which is no steal at all. The
+answer goes up once the steal is taken, missed, or passed — and on a miss where
+no steal is possible at all.
 
 Steals are the reason the other three players stay awake while someone else is
 up. Without it, everyone is idle 75% of the time.
@@ -206,10 +220,10 @@ answering their own question**.
 A handicap is an integer offset per player, set at Setup. Several levers, in
 rough order of how well they work:
 
-1. **Difficulty shift.** Offset the ledger-to-difficulty mapping. A kid at +1
-   sees medium where an adult sees hard, easy where an adult sees medium. This
-   is the cleanest lever, but OpenTDB has only three tiers, so it is coarse and
-   saturates at +2.
+1. **Difficulty shift.** Offset the round's difficulty per player. A kid at +1
+   sees medium in Section 2 where an adult sees hard, and easy in the speed
+   round. This is the cleanest lever, but OpenTDB has only three tiers, so it is
+   coarse and saturates quickly.
 2. **Category pool split.** Draw the kid's questions from kid-friendly
    categories (Cartoon & Animation, Video Games, Animals) while adults draw from
    the full pool. Categories are already per-question, so nothing structural
@@ -227,7 +241,8 @@ Two places the handicap does not apply cleanly, worth deciding before building:
 - **Steals.** The stealer inherits a question drawn for someone else's tier. Two
   fixes: bar steals across mismatched tiers, or let the steal stand as-is on the
   reasoning that a stolen question is a bonus either way. The second is simpler
-  and probably fine.
+  and probably fine. (Less of a problem now that difficulty is per-round: within
+  a section every question is the same tier anyway.)
 - **The final.** Everyone answers the same question, so a difficulty shift is
   impossible. Handicap it on the wager cap instead: raise the floor for
   handicapped players so a kid can bet meaningfully without having banked much.
@@ -261,9 +276,13 @@ ATTRACT ──▶ SETUP (players, names, handicaps)
               │                                     JUDGE
               │                              ┌─────────┴─────────┐
               │                          correct               wrong
+              │                       (answer shown)     (answer withheld)
               │                              │                   │
               └──── roll again ◀─────────────┘                   ▼
                                                              STEAL_OFFER
+                                                                 │
+                                                                 ▼
+                                                        REVEAL_ANSWER
                                                                  │
                                                                  ▼
                                                             NEXT_PLAYER
@@ -271,10 +290,10 @@ ATTRACT ──▶ SETUP (players, names, handicaps)
               (ledgers empty) ───────────────────────────────────┘
                               │
                               ▼
-                        SECTION_2 (same loop, turn order reversed)
+                        SPEED_ROUND (per player, comeback clock)
                               │
                               ▼
-                        SPEED_ROUND (per player, comeback clock)
+                        SECTION_2 (same loop, hard, turn order reversed)
                               │
                               ▼
                         FINAL_WAGER ──▶ FINAL_QUESTION ──▶ FINAL_JUDGE
@@ -317,7 +336,7 @@ Notes for the build:
 | Correct answer | wagered value |
 | Early lock (before option D) | +1 |
 | Sweep a full ledger unbroken | +3 |
-| Successful steal | half the burned value, rounded up |
+| Successful steal | +1 in Section 1, +2 in Section 2 |
 | Speed round correct | +1 each |
 | Final correct | + wager |
 | Final wrong | − wager |

@@ -5,13 +5,15 @@
 - [x] Cloudflare Worker + static assets, no bindings to configure
 - [x] Attract screen and D-pad setup (2–4 players, on-screen keyboard for names)
 - [x] Category draft with one veto per player, pool sized `questions + players`
-- [x] Section 1 (ledger 1–4) and Section 2 (ledger 2–6), turn order reversed
+- [x] Section 1 (easy, ledger 1–4) and Section 2 (hard, ledger 2–6), turn
+      order reversed, with the speed round (medium) between them
 - [x] Wager ledger — each value spent exactly once, chosen before any reveal
-- [x] Difficulty weighting — wagered value picks the OpenTDB tier
+- [x] Difficulty per round rather than per wager
 - [x] Paced reveal A→B→C→D, arrow to lock at any point
 - [x] Early lock bonus (+1 before option D)
 - [x] Roll again on correct, sweep bonus (+3) for an unbroken ledger
-- [x] Steal by the next player, worth half the burned value rounded up
+- [x] Steal by the next player, flat 1 in Section 1 and 2 in Section 2, with
+      the correct answer withheld until the steal is settled
 - [x] Speed round — per-player clock, free answer, host judges, comeback weighting
 - [x] Final — dynamic wager cap, lowest scorer declares first, wagers resolve
 - [x] Sudden death for ties
@@ -31,8 +33,16 @@
       question; both are one constant in `TUNING`.
 - [ ] **Speed round question count.** Check whether 45s actually yields enough
       questions to feel like a round.
-- [ ] **Sweep bonus reachability.** Five correct in a row in Section 2 may be
-      rare enough that +3 never fires.
+- [ ] **Sweep bonus reachability.** Five correct in a row in Section 2 is now
+      five *hard* questions in a row, so +3 may never fire. Section 1's sweep,
+      four easy in a row, may conversely be near-automatic. Worth watching
+      whether the bonus wants to differ by section.
+- [ ] **Wager stakes.** With difficulty fixed per section, betting high carries
+      no extra risk — the ledger is now an allocation puzzle rather than a
+      gamble. That is the deliberate tradeoff for sections whose scores compare
+      cleanly; worth confirming it still feels like a decision at the table.
+- [ ] **Steal frequency in Section 2.** All-hard questions mean more misses,
+      so more steals. At a flat 2 points those may add up faster than expected.
 - [ ] **Wager cap.** `max(15, gap+1)` makes the final swingy by design. Confirm
       it doesn't make Sections 1 and 2 feel pointless.
 
@@ -55,6 +65,10 @@
 - [ ] **Sound.** A reveal tick and a lock sting would carry a lot of the pacing.
 
 ## Known rough edges
+
+- The judge screen drops the score strip when it is showing a question, because
+  the two together overflow a 1080p screen. Scores are one press away on the
+  next wager screen.
 
 - Whether a TV browser raises its keyboard on focus alone, or waits for OK on
   the field, varies by platform and could not be tested here. Down advances

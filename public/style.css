@@ -196,9 +196,25 @@ h2 {
 .tile.gone { opacity: 0.25; text-decoration: line-through; border-style: dashed; }
 .tile.wide { min-width: 14rem; text-align: left; font-size: 1.5rem; }
 
+/* Type scales down as the question and its options get longer, so a television
+   never has to clip what it cannot scroll. See densityClass() in app.js. */
+.qblock.dense-1 .question { font-size: 2.5rem; }
+.qblock.dense-1 .opt { font-size: 1.45rem; min-height: 3.7rem; }
+
+.qblock.dense-2 .question { font-size: 2.1rem; margin-bottom: 1.4rem; }
+.qblock.dense-2 .opt { font-size: 1.3rem; min-height: 3.2rem; margin-bottom: 0.6rem; }
+
+.qblock.dense-3 .question { font-size: 1.7rem; margin-bottom: 1rem; }
+.qblock.dense-3 .opt { font-size: 1.1rem; min-height: 2.7rem; margin-bottom: 0.45rem; }
+
 /* -------------------------------------------------------------------- verdict */
 
 .verdict { font-size: 3.6rem; font-weight: 800; margin-bottom: 0.8rem; }
+.verdict.tight { font-size: 2.3rem; margin-bottom: 0.4rem; }
+
+/* Beside a question block the detail line has to stay on one row, so let it
+   run wider rather than wrapping and pushing the hint bar off the screen. */
+.verdict.tight + .note { max-width: 74ch; font-size: 1.15rem; margin-top: 0; }
 .verdict.good { color: var(--good); }
 .verdict.bad { color: var(--bad); }
 
@@ -387,6 +403,15 @@ h2 {
     margin-right: 0;
     font-size: 1.15rem;
   }
+
+  /* The density rules carry more specificity than a bare `.question`, and a
+     media query adds none, so the phone scale has to be restated here. */
+  .qblock.dense-1 .question { font-size: 1.5rem; }
+  .qblock.dense-2 .question { font-size: 1.35rem; }
+  .qblock.dense-3 .question { font-size: 1.2rem; }
+  .qblock.dense-1 .opt { font-size: 1.1rem; min-height: 2.9rem; }
+  .qblock.dense-2 .opt { font-size: 1.05rem; min-height: 2.7rem; }
+  .qblock.dense-3 .opt { font-size: 1rem; min-height: 2.6rem; }
 
   .namefield { font-size: 1.6rem; max-width: none; border-width: 3px; }
   /* The field runs the full width here, so an outset glow would be clipped. */

@@ -222,6 +222,75 @@ for (const [label, width, height] of VIEWPORTS) {
   await ctx.close();
 }
 
+// ------------------------------------------------------------ television fit
+
+// A television has no scrollbar and the body does not scroll, so anything past
+// the bottom edge is lost - including the hint bar, the only thing telling the
+// host what the buttons do. Every screen must fit, at worst-case content.
+console.log('\ntelevision fit');
+
+for (const [w, h] of [[1920, 1080], [1280, 720]]) {
+  const ctx = await browser.newContext({ viewport: { width: w, height: h } });
+  const tv = await ctx.newPage();
+  await tv.goto(base, { waitUntil: 'networkidle' });
+
+  const probe = await tv.evaluate(() => {
+    const out = [];
+    const measure = (label) => {
+      const d = document.documentElement;
+      const hints = document.querySelector('.hints');
+      out.push({
+        label,
+        over: d.scrollHeight - d.clientHeight,
+        hintsBottom: hints ? Math.round(hints.getBoundingClientRect().bottom) : 0,
+        hasOptions: document.querySelectorAll('.opt').length,
+      });
+    };
+
+    handle('OK'); handle('OK');
+    setup.names = ['Alexandra', 'Bartholomew', 'Cassiopeia', 'Demetrius'];
+    setup.count = 4;
+    for (let i = 0; i < 4; i++) handle('OK');
+    measure('draft');
+    while (currentScreen() === 'draft') handle('OK');
+    measure('section intro');
+    handle('OK');
+    measure('wager');
+    handle('OK');
+
+    // Substitute worst-case text so the result is not luck of the draw.
+    S.q.text = 'Which of these long-winded and thoroughly padded questions is ' +
+      'the one that wraps onto three separate lines on a television screen?';
+    S.q.options = [0, 1, 2, 3].map((n) => 'A thoroughly padded answer option ' + n);
+    S.q.correctIdx = 0;
+    render();
+    measure('question, nothing revealed');
+    for (let i = 0; i < 4; i++) handle('OK');
+    measure('question, all revealed');
+
+    S.q.sel = 1; render(); handle('OK');
+    measure('judge, answer withheld');
+    handle('OK');
+    measure('steal');
+    const hit = S.steal.alive.indexOf(S.q.correctIdx);
+    while (S.steal.cursor !== hit) handle('RIGHT');
+    handle('OK');
+    measure('judge, steal resolved');
+    return out;
+  });
+
+  for (const r of probe) {
+    expect(r.over === 0 && r.hintsBottom <= h,
+      `${w}x${h} ${r.label}: fits (overflow ${r.over}px, hint bar ends at ${r.hintsBottom})`);
+  }
+  // Guards the var-hoisting class of bug: a judge screen that silently drops
+  // its question block would "fit" perfectly.
+  const judges = probe.filter((r) => r.label.startsWith('judge'));
+  expect(judges.every((r) => r.hasOptions === 4),
+    `${w}x${h}: the judge screens still show all four options`);
+  await ctx.close();
+}
+
 await browser.close();
 server.close();
 console.log(failures.length ? `\n${failures.length} failing` : '\nall green');

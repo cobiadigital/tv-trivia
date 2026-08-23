@@ -17,13 +17,16 @@ var TUNING = {
   maxNameLength: 10
 };
 
+// Difficulty belongs to the section, not the wager: section 1 is easy
+// throughout, section 2 hard. The speed round sits between them and draws
+// medium, so the game ramps rather than stepping.
+// Tiers are 0 = easy, 1 = medium, 2 = hard.
 var SECTIONS = [
-  { number: 1, ledger: [1, 2, 3, 4] },
-  { number: 2, ledger: [2, 3, 4, 5, 6] }
+  { number: 1, ledger: [1, 2, 3, 4], difficulty: 0, stealValue: 1 },
+  { number: 2, ledger: [2, 3, 4, 5, 6], difficulty: 2, stealValue: 2 }
 ];
 
-// Wagered value picks the difficulty tier. 0 = easy, 1 = medium, 2 = hard.
-var DIFFICULTY_FOR_VALUE = { 1: 0, 2: 0, 3: 1, 4: 1, 5: 2, 6: 2 };
+var SPEED_DIFFICULTY = 1;
 
 var DIFFICULTY_NAMES = ['Easy', 'Medium', 'Hard'];
 
@@ -348,6 +351,7 @@ function afterQuestionResolved() {
       headline: p.name + ' swept the ledger',
       detail: '+' + TUNING.sweepBonus + ' bonus for clearing every value without a miss.',
       good: true,
+      showAnswer: true,
       rollAgain: false
     };
     S.screen = 'judge';
@@ -366,13 +370,8 @@ function afterQuestionResolved() {
 }
 
 function endSection() {
-  if (S.sectionIndex === 0) {
-    S.sectionIndex = 1;
-    S.order = S.order.slice().reverse();   // going last is a small edge
-    startDraft();
-  } else {
-    startSpeedRound();
-  }
+  if (S.sectionIndex === 0) startSpeedRound();
+  else startFinal();
 }
 
 // -------------------------------------------------------------- wager & judge
@@ -388,7 +387,7 @@ function beginQuestion(value) {
   var categoryId = S.categories[p.qIndex % S.categories.length];
   p.qIndex++;
 
-  var q = drawQuestion(categoryId, DIFFICULTY_FOR_VALUE[value], {});
+  var q = drawQuestion(categoryId, section().difficulty, {});
   S.q = buildQuestionState(q, categoryId, value, currentPlayerIdx());
   S.steal = null;
   S.screen = 'question';
@@ -411,6 +410,7 @@ function lockAnswer(idx) {
         (q.earlyLock ? ' +' + TUNING.earlyLockBonus + ' for locking early' : '') +
         '  =  +' + gained,
       good: true,
+      showAnswer: true,
       rollAgain: true
     };
     S.screen = 'judge';
@@ -421,8 +421,9 @@ function lockAnswer(idx) {
   S.result = {
     kind: 'wrong',
     headline: 'Wrong',
-    detail: p.name + ' burns the ' + q.value + '.',
+    detail: p.name + ' burns the ' + q.value + '. Answer hidden until the steal is settled.',
     good: false,
+    showAnswer: false,
     rollAgain: false
   };
   S.screen = 'judge';
@@ -435,14 +436,31 @@ function offerSteal() {
   for (var i = 0; i < q.revealed; i++) {
     if (i !== q.lockedIdx) alive.push(i);
   }
-  if (!alive.length) { afterQuestionResolved(); return; }
 
   var stealerTurn = (S.turn + 1) % S.order.length;
   var stealerIdx = S.order[stealerTurn];
-  if (stealerIdx === q.ownerIdx) { afterQuestionResolved(); return; }
+
+  if (!alive.length || stealerIdx === q.ownerIdx) {
+    revealAnswer('No steal', 'Nothing left for anyone else to take.', false);
+    return;
+  }
 
   S.steal = { playerIdx: stealerIdx, alive: alive, cursor: 0 };
   S.screen = 'steal';
+}
+
+// A miss keeps the correct answer hidden, otherwise the steal is a gift. Every
+// way out of a miss ends here, which is where the answer finally goes up.
+function revealAnswer(headline, detail, good) {
+  S.result = {
+    kind: 'reveal',
+    headline: headline,
+    detail: detail,
+    good: good,
+    showAnswer: true,
+    rollAgain: false
+  };
+  S.screen = 'judge';
 }
 
 function resolveSteal(optionIdx) {
@@ -450,13 +468,14 @@ function resolveSteal(optionIdx) {
   var p = S.players[S.steal.playerIdx];
 
   if (optionIdx === q.correctIdx) {
-    var gained = Math.ceil(q.value / 2);
+    var gained = section().stealValue;
     p.score += gained;
     S.result = {
       kind: 'steal',
       headline: 'Stolen',
-      detail: p.name + ' takes half of ' + q.value + ', rounded up  =  +' + gained,
+      detail: p.name + ' takes +' + gained + '.',
       good: true,
+      showAnswer: true,
       rollAgain: false
     };
   } else {
@@ -465,6 +484,7 @@ function resolveSteal(optionIdx) {
       headline: 'Steal failed',
       detail: 'No cost to ' + p.name + '. The ' + q.value + ' stays burned.',
       good: false,
+      showAnswer: true,
       rollAgain: false
     };
   }
@@ -493,7 +513,7 @@ function speedPlayerIdx() { return S.order[S.speed.seat]; }
 function speedNextQuestion() {
   var sp = S.speed;
   var categoryId = S.categories[sp.asked % S.categories.length];
-  var q = drawQuestion(categoryId, sp.asked % 2, { speakable: true });
+  var q = drawQuestion(categoryId, SPEED_DIFFICULTY, { speakable: true });
   sp.q = q;
   sp.revealed = false;
 }
@@ -522,11 +542,13 @@ function endSpeedTurn() {
 function speedAdvanceSeat() {
   var sp = S.speed;
   sp.seat++;
-  if (sp.seat >= S.order.length) {
-    startFinal();
-    return;
-  }
-  S.screen = 'speedIntro';
+  if (sp.seat < S.order.length) { S.screen = 'speedIntro'; return; }
+
+  // Out of the speed round and into section 2, with the order flipped:
+  // going last is a small edge, having watched everyone else burn questions.
+  S.sectionIndex = 1;
+  S.order = S.order.slice().reverse();
+  startDraft();
 }
 
 // ------------------------------------------------------------------- final
@@ -734,6 +756,26 @@ function categoryLine(highlightId) {
   return '<div class="catlist">' + parts.join(' &nbsp;·&nbsp; ') + '</div>';
 }
 
+// A television has no scrollbar and `overflow: hidden`, so anything that does
+// not fit is simply lost - including the hint bar, which is the only thing
+// telling the host what the buttons do. Rather than hope the content fits,
+// pick a type scale from how much of it there actually is. `bump` accounts for
+// whatever else the screen is carrying above the question.
+function densityClass(q, bump) {
+  var chars = q.text.length;
+  for (var i = 0; i < q.options.length; i++) chars += q.options[i].length;
+  var level = chars > 260 ? 3 : chars > 170 ? 2 : chars > 110 ? 1 : 0;
+  level = Math.min(3, level + (bump || 0));
+  return level ? ' dense-' + level : '';
+}
+
+function questionBlock(q, opts, bump) {
+  return '<div class="qblock' + densityClass(q, bump) + '">' +
+    '<div class="question">' + esc(q.text) + '</div>' +
+    (opts ? optionRows(q, opts) : '') +
+    '</div>';
+}
+
 function optionRows(q, opts) {
   opts = opts || {};
   var letters = ['A', 'B', 'C', 'D'];
@@ -753,7 +795,7 @@ function optionRows(q, opts) {
     if (opts.selIdx === i) cls += ' sel';
     if (opts.dead && opts.dead.indexOf(i) !== -1) cls += ' dead';
     if (opts.showResult && i < q.revealed) {
-      if (i === q.correctIdx) cls += ' correct';
+      if (i === q.correctIdx && !opts.hideCorrect) cls += ' correct';
       else if (i === opts.lockedIdx) cls += ' wrong';
     }
 
@@ -863,7 +905,8 @@ function view() {
         '<h1>Section ' + sec.number + '</h1>' +
         categoryLine() +
         '<div class="note">Ledger: ' + sec.ledger.join(', ') +
-        '. Spend each value once. Higher values draw harder questions. ' +
+        '. Spend each value once. Every question this section is <b>' +
+        DIFFICULTY_NAMES[sec.difficulty].toLowerCase() + '</b>. ' +
         (S.sectionIndex === 1 ? 'Turn order is reversed for this section. ' : '') +
         'First up: <b>' + esc(currentPlayer().name) + '</b>.</div>' +
         playerStrip(currentPlayerIdx(), true) +
@@ -886,14 +929,13 @@ function view() {
           '>' + v + '</div>';
       }
       var value = p.ledger[S.wagerCursor];
-      var tier = DIFFICULTY_NAMES[DIFFICULTY_FOR_VALUE[value]];
       return statusBar(['Up: <b>' + esc(p.name) + '</b>']) +
         '<div class="eyebrow">Category</div>' +
         '<h1>' + esc(bank.catName[categoryId]) + '</h1>' +
         '<div class="tiles">' + tiles + '</div>' +
-        '<div class="note">Wagering <b>' + value + '</b> draws ' +
-        (tier === 'Easy' ? 'an' : 'a') + ' <b>' + tier + '</b> question. ' +
-        'Choose before any options are revealed.</div>' +
+        '<div class="note">Worth <b>' + value + '</b> if you get it. ' +
+        'Spend each value once, so put your big ones on the categories you ' +
+        'know. Choose before any options are revealed.</div>' +
         playerStrip(currentPlayerIdx(), true) +
         hintBar([['←→', 'choose wager'], ['OK', 'lock it in'], ['Back', 'undo']]);
     }
@@ -912,8 +954,7 @@ function view() {
                         'Wager <b>' + q.value + '</b>',
                         DIFFICULTY_NAMES[q.difficulty]]) +
         categoryLine(q.categoryId) +
-        '<div class="question">' + esc(q.text) + '</div>' +
-        optionRows(q, { selIdx: q.sel, pickable: pickable }) +
+        questionBlock(q, { selIdx: q.sel, pickable: pickable }, 0) +
         (q.revealed < 4 && !selecting
           ? '<div class="note">Locking before option D is revealed is worth +' +
             TUNING.earlyLockBonus + '.</div>'
@@ -923,20 +964,27 @@ function view() {
 
     case 'judge': {
       var r = S.result;
+      var showsQuestion = !!(S.q && r.kind !== 'sweep');
+      var next = (r.kind === 'wrong') ? 'offer the steal' : 'continue';
       var body;
-      if (S.q && r.kind !== 'sweep') {
+
+      if (showsQuestion) {
         body = categoryLine(S.q.categoryId) +
-          '<div class="question">' + esc(S.q.text) + '</div>' +
-          optionRows(S.q, { showResult: true, lockedIdx: S.q.lockedIdx });
+          questionBlock(S.q, { showResult: true, lockedIdx: S.q.lockedIdx,
+                               hideCorrect: !r.showAnswer }, 2);
       } else {
         body = '<div class="bignum">+' + TUNING.sweepBonus + '</div>';
       }
-      var next = (r.kind === 'wrong') ? 'offer the steal' : 'continue';
+
       return statusBar() +
-        '<div class="verdict ' + (r.good ? 'good' : 'bad') + '">' + esc(r.headline) + '</div>' +
+        '<div class="verdict' + (showsQuestion ? ' tight' : '') +
+        (r.good ? ' good' : ' bad') + '">' + esc(r.headline) + '</div>' +
         '<div class="note">' + esc(r.detail) + '</div>' +
         body +
-        playerStrip(S.q ? S.q.ownerIdx : -1, true) +
+        // No score strip when the question block is up: it is what pushes this
+        // screen off the bottom of a television, the detail line above already
+        // states the points, and the next wager screen shows every score.
+        (showsQuestion ? '' : playerStrip(-1, true)) +
         hintBar([['OK', next], ['Back', 'undo this judgment']]);
     }
 
@@ -944,10 +992,10 @@ function view() {
       var st = S.steal;
       var q = S.q;
       return statusBar(['Steal: <b>' + esc(S.players[st.playerIdx].name) + '</b>']) +
-        '<div class="eyebrow">Worth ' + Math.ceil(q.value / 2) + ', costs nothing to miss</div>' +
-        '<div class="question">' + esc(q.text) + '</div>' +
-        optionRows(q, { selIdx: st.alive[st.cursor], dead: [q.lockedIdx],
-                        pickable: st.alive }) +
+        '<div class="eyebrow">Worth ' + section().stealValue +
+        ', costs nothing to miss</div>' +
+        questionBlock(q, { selIdx: st.alive[st.cursor], dead: [q.lockedIdx],
+                           pickable: st.alive }, 1) +
         hintBar([['←→', 'move'], ['OK', 'steal it'], ['↓', 'pass'], ['Back', 'undo']]);
     }
 
@@ -1194,7 +1242,12 @@ function handle(a) {
       var st = S.steal;
       if (a === 'BACK') { undo(); return; }
       if (a === 'OK') { snapshot(); resolveSteal(st.alive[st.cursor]); break; }
-      if (a === 'DOWN') { snapshot(); afterQuestionResolved(); break; }
+      if (a === 'DOWN') {
+        snapshot();
+        st.done = true;
+        revealAnswer('Passed', S.players[st.playerIdx].name + ' passed on the steal.', false);
+        break;
+      }
       if (a === 'LEFT') st.cursor = wrap(st.cursor - 1, st.alive.length);
       else if (a === 'RIGHT' || a === 'UP') st.cursor = wrap(st.cursor + 1, st.alive.length);
       else return;
