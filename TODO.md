@@ -16,6 +16,8 @@
 - [x] Final — dynamic wager cap, lowest scorer declares first, wagers resolve
 - [x] Sudden death for ties
 - [x] Back undoes anything, including a misjudgment
+- [x] Mouse and touch as a secondary input, with the hint bar doubling as the
+      touch control bar and a two-tap select-then-commit on every target
 - [x] No repeated questions within a session
 - [x] Free-answer filter for the speed round and final
 - [x] Headless test harness that plays full games and asserts the rules
@@ -52,7 +54,10 @@
 ## Known rough edges
 
 - Setup name entry is a D-pad keyboard grid. It works, but it is the slowest
-  part of the game; defaults (Player 1–4) are one press away via DONE.
+  part of the game; defaults (Player 1–4) are one press away via DONE. On a
+  phone the letters are directly tappable, which is much faster.
+- The final wager is adjusted by ±1 / ±5 chips rather than a numeric keypad.
+  Fine by remote, a little slow by touch for a wager of 30-something.
 - The speed round has one level of undo (Back takes back the last mark),
   not the full undo stack the rest of the game has, because the clock is running.
 - Sudden death awards a single point to break the tie rather than tracking a
