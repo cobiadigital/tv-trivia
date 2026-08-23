@@ -161,8 +161,11 @@ than just shrinking:
   in a standalone PWA window, where a fixed bar above a body-scrolled page and a
   measured height that has to survive rotation are all things that behave
   differently. The shell depends on none of them.
-- Type and spacing step down, and categories go full width — they're too long
-  to sit two-up, and full width makes them the easiest thing to hit.
+- Type and spacing step down. Category tiles take a comfortable minimum width
+  and let the row pack as many columns as fit: one on a phone held upright,
+  three or four held sideways. Stacked one per row they could not be made to fit
+  sideways at *any* type size — the tiles have a floor in px so a finger can
+  still hit them — while 850 pixels of width sat unused beside them.
 - **Held sideways, answer options go two-up.** A landscape phone is about 400px
   tall and 870px wide: in one column the last option fell below the fold and the
   one above it landed under the control bar, so half the board was untappable
@@ -187,7 +190,9 @@ The root font size is fixed on phones rather than scaled to viewport height:
 `2.2vh` is right for a panel and much too large for a phone.
 
 Checked at 393×659, 402×734, 440×782, 360×640 and their landscape rotations,
-each asserting the whole board fits with nothing left below the fold.
+each asserting the whole board fits with nothing left below the fold — for the
+question screen and, separately, for the category draft and sudden death, which
+are lists rather than questions and fit differently.
 Playwright has no iPhone 17 Pro profile, so those brackets straddle it rather
 than matching it exactly.
 

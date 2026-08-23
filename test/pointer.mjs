@@ -363,6 +363,61 @@ console.log('\nnumber keys');
   await ctx.close();
 }
 
+// ----------------------------------------------------------- other screens
+
+// The fit checks above all measure a question. The category draft is a
+// different shape - a list of long names, nine of them at most - and stacked
+// one per row it could not be made to fit sideways at any type size.
+console.log('\nother screens fit too');
+
+for (const [label, width, height] of VIEWPORTS) {
+  const ctx = await browser.newContext({
+    viewport: { width, height }, deviceScaleFactor: 3, hasTouch: true, isMobile: true,
+  });
+  const sp = await ctx.newPage();
+  await sp.goto(base, { waitUntil: 'networkidle' });
+
+  // Four players in section 2 is the largest pool the game ever draws: nine.
+  const draft = await sp.evaluate(() => {
+    handle('OK'); handle('OK');
+    setup.names = ['Alexandra', 'Bartholomew', 'Cassiopeia', 'Demetrius'];
+    setup.count = 4;
+    for (let i = 0; i < 4; i++) handle('OK');
+    S.sectionIndex = 1;
+    startDraft();
+    render();
+    const scroller = document.querySelector('.screen-scroll');
+    const tiles = [...document.querySelectorAll('.tile')];
+    return {
+      screen: currentScreen(),
+      pool: tiles.length,
+      over: scroller.scrollHeight - scroller.clientHeight,
+      shortest: Math.min(...tiles.map((t) => Math.round(t.getBoundingClientRect().height))),
+      narrowest: Math.min(...tiles.map((t) => Math.round(t.getBoundingClientRect().width))),
+    };
+  });
+  expect(draft.screen === 'draft' && draft.pool === 9,
+    `${label}: the biggest draft pool is nine categories (got ${draft.pool})`);
+  expect(draft.over <= 1,
+    `${label}: the whole category draft fits (over by ${draft.over}px)`);
+  expect(draft.shortest >= 32 && draft.narrowest >= 32,
+    `${label}: category tiles stay hittable (${draft.narrowest}x${draft.shortest})`);
+
+  // Sudden death lays out the same wide tile, with a player on each.
+  const sudden = await sp.evaluate(() => {
+    S.players.forEach((p) => { p.score = 10; });
+    finishGame();
+    S.sudden.revealed = true;
+    render();
+    const scroller = document.querySelector('.screen-scroll');
+    return { screen: currentScreen(), over: scroller.scrollHeight - scroller.clientHeight };
+  });
+  expect(sudden.screen === 'sudden' && sudden.over <= 1,
+    `${label}: sudden death fits (over by ${sudden.over}px)`);
+
+  await ctx.close();
+}
+
 // --------------------------------------------------------------------- boot
 
 // A television has no console. Every one of these paths used to end in a screen

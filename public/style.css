@@ -418,22 +418,30 @@ h2 {
   .opt .letter { margin-right: 0.7rem; min-width: 1.3rem; }
   .opt.sel { box-shadow: 0 0 0 4px rgba(255, 210, 63, 0.28); }
 
+  /* Spacing moves to a gap on the row, so a wrapped tile does not carry a
+     trailing margin into the next column. */
+  .tiles { gap: 0.5rem; }
+
   .tile {
     min-height: 34px;
     font-size: 1.4rem;
     min-width: 3.6rem;
     padding: 0.75rem 0.9rem;
-    margin: 0 0.6rem 0.6rem 0;
+    margin: 0;
     border-width: 3px;
   }
   .tile.sel { box-shadow: 0 0 0 4px rgba(255, 210, 63, 0.28); }
 
-  /* Category names are too long to sit two-up on a phone, and full width
-     makes them the easiest thing on the screen to hit. */
+  /* Category names are long, so give each one a comfortable minimum and let
+     the row pack as many columns as the width allows: one on a phone held
+     upright, three or four held sideways. Stacked full width, eight of them
+     could not be made to fit sideways at any type size - the tiles have a
+     floor in px so a finger can still hit them - while 850 pixels of width
+     sat unused beside them. */
   .tile.wide {
-    width: 100%;
+    width: auto;
+    flex: 1 1 190px;
     min-width: 0;
-    margin-right: 0;
     font-size: 1.15rem;
   }
 
