@@ -117,6 +117,31 @@ check('every draftable category can supply all three difficulties', () => {
   }
 });
 
+check('an unnamed player falls back to Player N', () => {
+  const g = makeGame(bank);
+  g.press('OK');
+  g.press('LEFT'); g.press('LEFT');                 // two players
+  g.press('OK');
+  g.ctx.setup.names[0] = '  Ada  ';                 // the field keeps raw text
+  g.press('OK');
+  g.press('OK');                                    // second player left blank
+  if (g.S.players[0].name !== 'Ada') throw new Error('name not trimmed: ' + g.S.players[0].name);
+  if (g.S.players[1].name !== 'Player 2') throw new Error('blank name not defaulted');
+});
+
+check('Back steps through the name screens and out to the count', () => {
+  const g = makeGame(bank);
+  g.press('OK'); g.press('OK');
+  g.ctx.setup.names[0] = 'Ada';
+  g.press('OK');
+  if (g.ctx.setup.playerIdx !== 1) throw new Error('did not advance to player 2');
+  g.press('BACK');
+  if (g.ctx.setup.playerIdx !== 0) throw new Error('Back did not return to player 1');
+  if (g.ctx.setup.names[0] !== 'Ada') throw new Error('Back lost the typed name');
+  g.press('BACK');
+  if (g.screen() !== 'setupCount') throw new Error('Back did not reach the count screen');
+});
+
 check('a bank too thin to veto still yields a playable section', () => {
   // Two categories total: not enough to hand every player a veto.
   const keep = new Set(bank.categories.slice(0, 2).map((c) => c.id));
@@ -134,12 +159,7 @@ check('a bank too thin to veto still yields a playable section', () => {
 check('undo walks a game back to the start', () => {
   const g = makeGame(bank);
   g.press('OK'); g.press('OK');
-  const done = [5, 4];
-  for (let i = 0; i < 4; i++) {
-    while (g.ctx.setup.row !== done[0]) g.press('DOWN');
-    while (g.ctx.setup.col !== done[1]) g.press('RIGHT');
-    g.press('OK');
-  }
+  for (let i = 0; i < 4; i++) g.press('OK');       // accept the default names
   if (g.screen() !== 'draft') throw new Error('expected draft, got ' + g.screen());
   for (let i = 0; i < 4; i++) g.press('OK');       // four vetoes
   g.press('OK');                                    // section intro
@@ -157,12 +177,8 @@ check('undo walks a game back to the start', () => {
 check('a misjudged answer can be taken back', () => {
   const g = makeGame(bank);
   g.press('OK'); g.press('OK');
-  for (let i = 0; i < 4; i++) {
-    while (g.ctx.setup.row !== 5) g.press('DOWN');
-    while (g.ctx.setup.col !== 4) g.press('RIGHT');
-    g.press('OK');
-  }
-  for (let i = 0; i < 4; i++) g.press('OK');
+  for (let i = 0; i < 4; i++) g.press('OK');       // accept the default names
+  for (let i = 0; i < 4; i++) g.press('OK');       // four vetoes
   g.press('OK'); g.press('OK');
   const scoresBefore = g.S.players.map((p) => p.score);
   for (let i = 0; i < 4; i++) g.press('OK');

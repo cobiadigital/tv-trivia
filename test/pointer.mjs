@@ -64,13 +64,31 @@ expect(await screen() === 'setupCount', 'one tap does not confirm the count');
 await page.locator('.tile:text-is("2")').click();
 expect(await screen() === 'setupName', 'a second tap confirms the count');
 
-for (const ch of 'JO') await page.locator(`.key:text-is("${ch}")`).click();
-expect(await state(() => setup.names[0]) === 'JO', 'keyboard keys type on one tap');
-await page.locator('.key:text-is("DEL")').click();
-expect(await state(() => setup.names[0]) === 'J', 'the DEL key deletes a character');
-await page.locator('.key:text-is("DONE")').click();
-await page.locator('.key:text-is("DONE")').click();
-expect(await screen() === 'draft', 'setup completes by pointer');
+// The name field is focused on arrival, which is what raises the TV's keyboard.
+expect(await state(() => document.activeElement.id) === 'namefield',
+  'the name field takes focus on arrival');
+await page.locator('#namefield').fill('Jo');
+expect(await state(() => setup.names[0]) === 'Jo', 'typing updates the stored name');
+expect(await state(() => document.activeElement.id) === 'namefield',
+  'typing does not re-render and steal focus');
+await chip('OK').click();
+expect(await state(() => setup.playerIdx) === 1, 'the OK chip moves to the next player');
+expect(await state(() => document.activeElement.id) === 'namefield',
+  'the next player field takes focus too');
+
+// Down is the fallback for TV browsers that keep Enter for their own keyboard.
+await chip('\u2191').click();
+expect(await state(() => setup.playerIdx) === 0, 'the up chip goes back a player');
+expect(await state(() => setup.names[0]) === 'Jo', 'going back keeps the typed name');
+await page.locator('#namefield').press('ArrowDown');
+expect(await state(() => setup.playerIdx) === 1, 'Down in the field advances a player');
+
+// Enter, where the browser delivers it rather than opening its own keyboard.
+await page.locator('#namefield').fill('Sam');
+await page.keyboard.press('Enter');
+expect(await screen() === 'draft', 'Enter in the field finishes setup');
+expect(await state(() => S.players.map((p) => p.name).join(',')) === 'Jo,Sam',
+  'both typed names reached the game');
 
 // The cursor already sits on the first tile when the draft opens, so this is
 // the case that would misfire if arming keyed off cursor position.
@@ -138,6 +156,71 @@ const tooSmall = await tp.evaluate(() => {
 });
 expect(tooSmall.length === 0, 'every touch target clears 32px: ' + JSON.stringify(tooSmall));
 expect(errors.length === 0, 'no page errors: ' + errors.join('; '));
+// ---------------------------------------------------------------- small screens
+
+// Playwright ships no iPhone 17 Pro profile, so bracket it: the 15 Pro is
+// narrower and shorter, the Pro Max wider, and the middle entry is the 17 Pro's
+// reported 402pt width with room taken off for Safari's chrome.
+const VIEWPORTS = [
+  ['iPhone 15 Pro', 393, 659],
+  ['iPhone 17 Pro', 402, 734],
+  ['iPhone 17 Pro Max', 440, 782],
+  ['iPhone 17 Pro landscape', 874, 402],
+  ['small Android', 360, 640],
+];
+
+console.log('\nsmall screens');
+
+for (const [label, width, height] of VIEWPORTS) {
+  const ctx = await browser.newContext({
+    viewport: { width, height }, deviceScaleFactor: 3, hasTouch: true, isMobile: true,
+  });
+  const sp = await ctx.newPage();
+  const perr = [];
+  sp.on('pageerror', (e) => perr.push(e.message));
+  await sp.goto(base, { waitUntil: 'networkidle' });
+
+  // Walk to a question, the densest screen in the game.
+  await sp.evaluate(() => {
+    handle('OK'); handle('OK');
+    setup.names = ['Alexandra', 'Bo']; setup.count = 2;
+    handle('OK'); handle('OK');
+    while (currentScreen() === 'draft') handle('OK');
+    handle('OK');
+    handle('OK');
+    handle('OK'); handle('OK'); handle('OK'); handle('OK');
+  });
+
+  const m = await sp.evaluate(() => {
+    const doc = document.documentElement;
+    const hints = document.querySelector('.hints').getBoundingClientRect();
+    const small = [];
+    document.querySelectorAll('[data-act],[data-pick]').forEach((el) => {
+      const r = el.getBoundingClientRect();
+      if (r.width < 32 || r.height < 32) small.push(el.textContent.trim());
+    });
+    const style = getComputedStyle(document.body);
+    return {
+      overflowX: doc.scrollWidth - doc.clientWidth,
+      clipped: doc.scrollHeight > doc.clientHeight && style.overflowY !== 'auto',
+      hintsOnScreen: hints.bottom <= doc.clientHeight + 1 && hints.top >= 0,
+      questionSize: parseFloat(getComputedStyle(document.querySelector('.question')).fontSize),
+      padTop: parseFloat(style.paddingTop),
+      small,
+      screen: currentScreen(),
+    };
+  });
+
+  expect(m.screen === 'question', `${label}: reaches a question`);
+  expect(m.overflowX === 0, `${label}: no horizontal overflow (${m.overflowX}px)`);
+  expect(!m.clipped, `${label}: overflowing content scrolls instead of being clipped`);
+  expect(m.hintsOnScreen, `${label}: the control bar stays on screen`);
+  expect(m.questionSize >= 16 && m.questionSize <= 40,
+    `${label}: question text is legible but fits (${m.questionSize}px)`);
+  expect(m.small.length === 0, `${label}: touch targets clear 32px ${JSON.stringify(m.small)}`);
+  expect(perr.length === 0, `${label}: no page errors`);
+  await ctx.close();
+}
 
 await browser.close();
 server.close();

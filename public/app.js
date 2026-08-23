@@ -663,15 +663,6 @@ function tickTimer() {
 
 // ------------------------------------------------------------------ render
 
-var KEYS = [
-  ['A', 'B', 'C', 'D', 'E', 'F', 'G'],
-  ['H', 'I', 'J', 'K', 'L', 'M', 'N'],
-  ['O', 'P', 'Q', 'R', 'S', 'T', 'U'],
-  ['V', 'W', 'X', 'Y', 'Z', "'", 'SPACE'],
-  ['0', '1', '2', '3', '4', '5', '6'],
-  ['7', '8', '9', 'DEL', 'DONE']
-];
-
 var setup = null;
 var loadError = null;
 
@@ -682,14 +673,18 @@ var loadError = null;
 // has no target to land on and cannot double-fire.
 var GLYPH_ACTION = { '\u2190': 'LEFT', '\u2192': 'RIGHT', '\u2191': 'UP', '\u2193': 'DOWN' };
 
-// '\u2190\u2192' in a hint becomes two chips; 'OK' and 'Back' become one each.
+// Tokenises a hint label into chips: 'OK', 'Back' and the arrow glyphs each
+// become one, so '\u2190\u2192' is two chips and 'OK / \u2193' is two as well.
+// Anything else in the label is a separator and is dropped.
 function hintChips(label) {
-  if (label === 'OK') return [['OK', 'OK']];
-  if (label === 'Back') return [['Back', 'BACK']];
   var out = [];
-  for (var i = 0; i < label.length; i++) {
+  var i = 0;
+  while (i < label.length) {
+    if (label.substr(i, 2) === 'OK') { out.push(['OK', 'OK']); i += 2; continue; }
+    if (label.substr(i, 4) === 'Back') { out.push(['Back', 'BACK']); i += 4; continue; }
     var ch = label.charAt(i);
     if (GLYPH_ACTION[ch]) out.push([ch, GLYPH_ACTION[ch]]);
+    i += 1;
   }
   return out.length ? out : [[label, null]];
 }
@@ -821,22 +816,23 @@ function view() {
 
     case 'setupName': {
       var name = setup.names[setup.playerIdx] || '';
-      var kb = '';
-      for (var r = 0; r < KEYS.length; r++) {
-        kb += '<div class="kbd-row">';
-        for (var c = 0; c < KEYS[r].length; c++) {
-          var k = KEYS[r][c];
-          var wide = (k.length > 1);
-          kb += '<div class="key' + (wide ? ' wide' : '') +
-            (setup.row === r && setup.col === c ? ' sel' : '') +
-            '" role="button" data-key="' + r + '.' + c + '">' + esc(k) + '</div>';
-        }
-        kb += '</div>';
-      }
+      var already = setup.names.slice(0, setup.playerIdx).map(function (n, i) {
+        return esc(n || ('Player ' + (i + 1)));
+      }).join(' &nbsp;·&nbsp; ');
+      // A real text field, so the TV's own keyboard does the typing. Every TV
+      // browser has one; a D-pad grid was only ever a worse version of it.
       return '<div class="eyebrow">Player ' + (setup.playerIdx + 1) + ' of ' + setup.count + '</div>' +
-        '<div class="nameline">' + (esc(name) || '&nbsp;') + '</div>' + kb +
-        '<div class="note">Leave it blank to be called Player ' + (setup.playerIdx + 1) + '.</div>' +
-        hintBar([['↑↓←→', 'move'], ['OK', 'type'], ['Back', 'delete']]);
+        '<h2>Who is playing?</h2>' +
+        '<input class="namefield" id="namefield" type="text" ' +
+        'maxlength="' + TUNING.maxNameLength + '" value="' + esc(name) + '" ' +
+        'placeholder="Player ' + (setup.playerIdx + 1) + '" ' +
+        'autocomplete="off" autocapitalize="words" autocorrect="off" spellcheck="false">' +
+        (already ? '<div class="catlist">' + already + '</div>' : '') +
+        '<div class="note">Leave it blank to be called Player ' +
+        (setup.playerIdx + 1) + '.</div>' +
+        hintBar([['OK / \u2193',
+                  setup.playerIdx + 1 < setup.count ? 'next player' : 'start the game'],
+                 ['\u2191', 'previous']]);
     }
 
     // ------------------------------------------------------------ draft
@@ -1121,7 +1117,7 @@ function handle(a) {
     if (loadError) { if (a === 'OK') loadBank(); return; }
     if (!bank) return;
     if (!setup) {
-      if (a === 'OK') { setup = { count: 4, playerIdx: 0, names: [], row: 0, col: 0, screen: 'setupCount' }; }
+      if (a === 'OK') { setup = { count: 4, playerIdx: 0, names: [], screen: 'setupCount' }; }
       renderSetup(); return;
     }
     handleSetup(a);
@@ -1340,6 +1336,25 @@ function handle(a) {
 
 function renderSetup() {
   document.getElementById('screen').innerHTML = view();
+  focusNameField();
+}
+
+// Focusing the field is what summons the TV's built-in keyboard, so it is the
+// whole point of the screen rather than a nicety.
+function focusNameField() {
+  if (!setup || setup.screen !== 'setupName') return;
+  var field = document.getElementById('namefield');
+  if (!field || !field.focus) return;
+  field.focus();
+  if (field.setSelectionRange) {
+    try { field.setSelectionRange(field.value.length, field.value.length); }
+    catch (e) { /* some engines refuse this on a freshly attached node */ }
+  }
+}
+
+function isTyping() {
+  var el = document.activeElement;
+  return !!(el && el.tagName === 'INPUT');
 }
 
 function handleSetup(a) {
@@ -1352,40 +1367,39 @@ function handleSetup(a) {
     return;
   }
 
-  var row = KEYS[setup.row];
+  if (a === 'BACK' || a === 'UP') {
+    readNameField();
+    if (setup.playerIdx > 0) setup.playerIdx--;
+    else setup.screen = 'setupCount';
+    renderSetup();
+    return;
+  }
 
-  if (a === 'UP') { setup.row = wrap(setup.row - 1, KEYS.length); }
-  else if (a === 'DOWN') { setup.row = wrap(setup.row + 1, KEYS.length); }
-  else if (a === 'LEFT') { setup.col = wrap(setup.col - 1, row.length); }
-  else if (a === 'RIGHT') { setup.col = wrap(setup.col + 1, row.length); }
-  else if (a === 'BACK') {
-    var cur = setup.names[setup.playerIdx] || '';
-    setup.names[setup.playerIdx] = cur.slice(0, -1);
-  } else if (a === 'OK') {
-    var key = KEYS[setup.row][Math.min(setup.col, KEYS[setup.row].length - 1)];
-    var name = setup.names[setup.playerIdx] || '';
-    if (key === 'DONE') {
-      setup.names[setup.playerIdx] = name.trim();
-      setup.playerIdx++;
-      if (setup.playerIdx >= setup.count) {
-        var names = [];
-        for (var i = 0; i < setup.count; i++) names.push(setup.names[i] || '');
-        setup = null;
-        past = [];
-        newGame(names);
-        render();
-        return;
-      }
-      setup.row = 0; setup.col = 0;
-    } else if (key === 'DEL') {
-      setup.names[setup.playerIdx] = name.slice(0, -1);
-    } else if (name.length < TUNING.maxNameLength) {
-      setup.names[setup.playerIdx] = name + (key === 'SPACE' ? ' ' : key);
-    }
-  } else return;
+  if (a !== 'OK' && a !== 'DOWN') return;
 
-  setup.col = Math.min(setup.col, KEYS[setup.row].length - 1);
-  renderSetup();
+  readNameField();
+  var name = (setup.names[setup.playerIdx] || '').trim();
+  setup.names[setup.playerIdx] = name;
+  setup.playerIdx++;
+
+  if (setup.playerIdx < setup.count) { renderSetup(); return; }
+
+  var names = [];
+  for (var i = 0; i < setup.count; i++) names.push(setup.names[i] || '');
+  setup = null;
+  past = [];
+  newGame(names);
+  render();
+}
+
+// The field is the source of truth while it is on screen: `input` events keep
+// setup.names in step, but a TV keyboard that commits its buffer without
+// firing one would otherwise be lost.
+function readNameField() {
+  var field = document.getElementById('namefield');
+  if (field && typeof field.value === 'string') {
+    setup.names[setup.playerIdx] = field.value;
+  }
 }
 
 // -------------------------------------------------------------------- boot
@@ -1512,22 +1526,34 @@ function pickSetup(index) {
   renderSetup();
 }
 
-// Keyboard keys type on a single tap: there is nothing destructive to guard
-// against, and two taps per letter would make name entry unbearable.
-function pickKey(row, col) {
-  if (!setup || setup.screen !== 'setupName') return;
-  setup.row = row;
-  setup.col = col;
-  handleSetup('OK');
-}
-
 // ------------------------------------------------------------------ wiring
 
 document.addEventListener('keydown', function (e) {
   var a = actionFor(e);
+
+  // While a text field has focus every key belongs to it and to the keyboard
+  // the TV has put on screen - arrows move the caret or the IME's own
+  // selection, Backspace deletes. Only Enter is ours, as "done with this name".
+  if (isTyping()) {
+    // Enter is ambiguous across TV browsers: some deliver it here, others keep
+    // it to raise their own keyboard. Down always reaches us, so it is the one
+    // that is guaranteed to get you off this screen.
+    if (a === 'OK' || a === 'DOWN') { e.preventDefault(); handle('OK'); }
+    else if (a === 'UP') { e.preventDefault(); handle('BACK'); }
+    return;
+  }
+
   if (!a) return;
   e.preventDefault();
   handle(a);
+});
+
+// Typing does not re-render: the field owns its own text, and rebuilding the
+// screen on every keystroke would drop focus and dismiss the TV's keyboard.
+document.addEventListener('input', function (e) {
+  if (setup && e.target && e.target.id === 'namefield') {
+    setup.names[setup.playerIdx] = e.target.value;
+  }
 });
 
 document.addEventListener('click', function (e) {
@@ -1539,13 +1565,6 @@ document.addEventListener('click', function (e) {
 
       var pick = node.getAttribute('data-pick');
       if (pick !== null && pick !== '') { handlePick(Number(pick)); return; }
-
-      var key = node.getAttribute('data-key');
-      if (key) {
-        var rc = key.split('.');
-        pickKey(Number(rc[0]), Number(rc[1]));
-        return;
-      }
     }
     node = node.parentNode;
   }

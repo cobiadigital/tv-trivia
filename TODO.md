@@ -18,6 +18,9 @@
 - [x] Back undoes anything, including a misjudgment
 - [x] Mouse and touch as a secondary input, with the hint bar doubling as the
       touch control bar and a two-tap select-then-commit on every target
+- [x] Names typed into a real text field, so the TV's own keyboard does the work
+- [x] Layout that adapts on phones: safe-area insets, scrolling instead of
+      clipping, and a control bar stuck to the bottom
 - [x] No repeated questions within a session
 - [x] Free-answer filter for the speed round and final
 - [x] Headless test harness that plays full games and asserts the rules
@@ -53,9 +56,11 @@
 
 ## Known rough edges
 
-- Setup name entry is a D-pad keyboard grid. It works, but it is the slowest
-  part of the game; defaults (Player 1–4) are one press away via DONE. On a
-  phone the letters are directly tappable, which is much faster.
+- Whether a TV browser raises its keyboard on focus alone, or waits for OK on
+  the field, varies by platform and could not be tested here. Down advances
+  either way, so the field is never a dead end, but the flow is worth watching
+  on the actual set.
+- Names default to Player 1–4 if left blank, which is one press per player.
 - The final wager is adjusted by ±1 / ±5 chips rather than a numeric keypad.
   Fine by remote, a little slow by touch for a wager of 30-something.
 - The speed round has one level of undo (Back takes back the last mark),
