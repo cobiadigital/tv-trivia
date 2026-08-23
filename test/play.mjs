@@ -67,6 +67,8 @@ export function playGame(bankJson, opts = {}) {
   }
 
   let steals = 0, sweeps = 0, earlyLocks = 0, questions = 0;
+  const asked = [];            // { section, difficulty } for every question drawn
+  let speedAtSection = null;   // which section had just finished when speed began
 
   for (let step = 0; step < 40000; step++) {
     const s = g.screen();
@@ -87,6 +89,7 @@ export function playGame(bankJson, opts = {}) {
         if (seen.has(q.id)) throw new Error('repeated question id ' + q.id);
         seen.add(q.id);
         questions++;
+        asked.push({ section: g.S.sectionIndex, difficulty: q.difficulty });
         const want = rng() < pCorrect
           ? q.correctIdx
           : (q.correctIdx + 1 + Math.floor(rng() * 3)) % 4;
@@ -116,7 +119,10 @@ export function playGame(bankJson, opts = {}) {
         }
         break;
       }
-      case 'speedIntro': press('OK'); break;
+      case 'speedIntro':
+        if (speedAtSection === null) speedAtSection = g.S.sectionIndex;
+        press('OK');
+        break;
       case 'speedPlay': {
         const sp = g.S.speed;
         if (sp.asked >= 6) {           // cut the clock short deterministically
@@ -150,7 +156,7 @@ export function playGame(bankJson, opts = {}) {
   }
 
   if (g.screen() !== 'scoreboard') throw new Error('never reached scoreboard');
-  return { g, steals, sweeps, earlyLocks, questions, log };
+  return { g, steals, sweeps, earlyLocks, questions, log, asked, speedAtSection };
 }
 
 

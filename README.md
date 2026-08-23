@@ -24,6 +24,20 @@ src/index.js         Worker: /api/health, plus a fallback to index.html
 `src/index.js` only handles paths that aren't files in `public/`. If the game
 later needs server state, that's where it goes.
 
+## Fitting a television
+
+A TV has no scrollbar and the body does not scroll, so anything past the bottom
+edge is simply lost — including the hint bar, the only thing telling the host
+what the buttons do. Question and option type therefore scales to how much text
+there actually is (`densityClass` in `app.js`), rather than to a fixed size that
+happens to fit the average question.
+
+`npm run test:pointer` measures every question-bearing screen at 1920×1080 and
+1280×720 with worst-case content and fails if anything overflows or if the hint
+bar ends below the fold.
+
+Phones are the opposite case and scroll instead; see **Small screens**.
+
 ## Playing
 
 Open the deployed URL in the TV browser. Everything maps to the D-pad:

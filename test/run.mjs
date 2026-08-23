@@ -64,11 +64,93 @@ for (const names of [['Ann', 'Bo'], ['Ann', 'Bo', 'Cy']]) {
 
 console.log('\nrules');
 
-check('ledger values map to the documented difficulty', () => {
+check('difficulty is a property of the section, not the wager', () => {
   const g = makeGame(bank);
-  const map = g.ctx.DIFFICULTY_FOR_VALUE;
-  const want = { 1: 0, 2: 0, 3: 1, 4: 1, 5: 2, 6: 2 };
-  for (const k in want) if (map[k] !== want[k]) throw new Error('value ' + k);
+  const [one, two] = g.ctx.SECTIONS;
+  if (one.difficulty !== 0) throw new Error('section 1 should be easy');
+  if (two.difficulty !== 2) throw new Error('section 2 should be hard');
+  if (g.ctx.SPEED_DIFFICULTY !== 1) throw new Error('the speed round should be medium');
+  if (g.ctx.DIFFICULTY_FOR_VALUE) throw new Error('the wager-to-difficulty map still exists');
+});
+
+check('every section 1 question is easy and every section 2 question is hard', () => {
+  for (let seed = 1; seed <= 5; seed++) {
+    const r = playGame(bank, { pCorrect: 0.5, rng: mulberry(seed * 31337) });
+    const bad = r.asked.filter((q) => q.difficulty !== [0, 2][q.section]);
+    if (bad.length) {
+      throw new Error(`${bad.length} of ${r.asked.length} off-tier, e.g. section ` +
+        `${bad[0].section} drew tier ${bad[0].difficulty}`);
+    }
+    if (!r.asked.some((q) => q.section === 0) || !r.asked.some((q) => q.section === 1)) {
+      throw new Error('a section drew no questions at all');
+    }
+  }
+});
+
+check('the speed round runs between the two sections', () => {
+  for (let seed = 1; seed <= 4; seed++) {
+    const r = playGame(bank, { pCorrect: 0.5, rng: mulberry(seed * 7717) });
+    if (r.speedAtSection !== 0) {
+      throw new Error('speed round began during section ' + r.speedAtSection);
+    }
+    // Section 2 questions must all come after the speed round in play order.
+    const firstSectionTwo = r.asked.findIndex((q) => q.section === 1);
+    const lastSectionOne = r.asked.map((q) => q.section).lastIndexOf(0);
+    if (firstSectionTwo < lastSectionOne) throw new Error('the sections interleaved');
+  }
+});
+
+check('steal values are flat per section', () => {
+  const g = makeGame(bank);
+  const [one, two] = g.ctx.SECTIONS;
+  if (one.stealValue !== 1) throw new Error('a section 1 steal should pay 1');
+  if (two.stealValue !== 2) throw new Error('a section 2 steal should pay 2');
+});
+
+check('the answer stays hidden until the steal is settled', () => {
+  const shows = () => /class="opt[^"]*\bcorrect\b/.test(g.html());
+  const g = makeGame(bank);
+  g.press('OK'); g.press('LEFT'); g.press('OK');    // three players
+  for (let i = 0; i < 3; i++) g.press('OK');        // default names
+  while (g.screen() === 'draft') g.press('OK');
+  g.press('OK');                                    // section intro
+  g.press('OK');                                    // wager
+  for (let i = 0; i < 4; i++) g.press('OK');        // reveal all four
+
+  const wrong = (g.S.q.correctIdx + 1) % 4;
+  while (g.S.q.sel !== wrong) g.press('RIGHT');
+  g.press('OK');
+  if (g.S.result.kind !== 'wrong') throw new Error('expected a miss');
+  if (shows()) throw new Error('the answer was shown on the miss');
+
+  g.press('OK');
+  if (g.screen() !== 'steal') throw new Error('no steal was offered');
+  if (shows()) throw new Error('the answer was shown during the steal');
+
+  const stealer = g.S.steal.playerIdx;
+  const before = g.S.players[stealer].score;
+  const hit = g.S.steal.alive.indexOf(g.S.q.correctIdx);
+  while (g.S.steal.cursor !== hit) g.press('RIGHT');
+  g.press('OK');
+  if (g.S.players[stealer].score - before !== 1) throw new Error('a section 1 steal should pay 1');
+  if (!shows()) throw new Error('the answer stayed hidden after the steal resolved');
+});
+
+check('passing on a steal still shows the answer', () => {
+  const g = makeGame(bank);
+  g.press('OK'); g.press('LEFT'); g.press('OK');
+  for (let i = 0; i < 3; i++) g.press('OK');
+  while (g.screen() === 'draft') g.press('OK');
+  g.press('OK'); g.press('OK');
+  for (let i = 0; i < 4; i++) g.press('OK');
+  const wrong = (g.S.q.correctIdx + 1) % 4;
+  while (g.S.q.sel !== wrong) g.press('RIGHT');
+  g.press('OK');
+  g.press('OK');
+  g.press('DOWN');                                  // pass
+  if (!/class="opt[^"]*\bcorrect\b/.test(g.html())) {
+    throw new Error('passing left the answer hidden');
+  }
 });
 
 check('final wager cap lets the trailer catch the leader', () => {
@@ -89,13 +171,6 @@ check('speed clock lengthens for trailing players, capped', () => {
   if (miles - base > g.ctx.TUNING.speedBonusCap) throw new Error('bonus uncapped');
 });
 
-check('steal pays half the burned value, rounded up', () => {
-  const g = makeGame(bank);
-  for (const [value, want] of [[1, 1], [2, 1], [3, 2], [4, 2], [5, 3], [6, 3]]) {
-    if (Math.ceil(value / 2) !== want) throw new Error('value ' + value);
-  }
-});
-
 check('free-answer filter drops option-dependent questions', () => {
   const g = makeGame(bank);
   const bad = g.ctx.bank.questions.filter((q) => q.speakable &&
@@ -105,14 +180,23 @@ check('free-answer filter drops option-dependent questions', () => {
   if (speakable.length < 300) throw new Error('only ' + speakable.length + ' speakable questions');
 });
 
-check('every draftable category can supply all three difficulties', () => {
+check('the bank can supply a whole section from a single tier', () => {
+  // Each section now draws one difficulty throughout, so demand concentrates.
+  // Section 2 with four players is the worst case: a nine-category draft pool
+  // where each surviving category must yield four hard questions.
   const g = makeGame(bank);
-  g.ctx.S = { usedQuestions: [] };
-  const cats = g.ctx.draftableCategories(4);
-  if (cats.length < 9) throw new Error('only ' + cats.length + ' categories with 4+ per tier');
+  const players = 4;
+  const cats = g.ctx.draftableCategories(players);
+  const poolNeeded = 5 + players;
+  if (cats.length < poolNeeded) {
+    throw new Error(`only ${cats.length} categories carry ${players}+ per tier, ` +
+      `need ${poolNeeded} for the section 2 draft`);
+  }
   for (const id of cats) {
     for (let d = 0; d < 3; d++) {
-      if (!g.ctx.bank.byCat[id][d].length) throw new Error('cat ' + id + ' tier ' + d);
+      if (g.ctx.bank.byCat[id][d].length < players) {
+        throw new Error(`category ${id} has only ${g.ctx.bank.byCat[id][d].length} at tier ${d}`);
+      }
     }
   }
 });
