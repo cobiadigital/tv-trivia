@@ -21,7 +21,11 @@ try {
 }
 
 const PUBLIC = fileURLToPath(new URL('../public', import.meta.url));
-const TYPES = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.json': 'application/json' };
+const TYPES = {
+  '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript',
+  '.json': 'application/json', '.webmanifest': 'application/manifest+json',
+  '.png': 'image/png',
+};
 
 const server = createServer(async (req, res) => {
   const path = req.url === '/' ? '/index.html' : req.url.split('?')[0];
@@ -277,6 +281,90 @@ for (const [label, width, height] of VIEWPORTS) {
   if (needScroll) console.log(`       (${needScroll} of ${optionCount} options need a scroll here)`);
 
   await ctx.close();
+}
+
+// -------------------------------------------------------------- the app shell
+
+// The bug this guards: a control bar that overlapped the content it was meant
+// to sit beside, in an arrangement (fixed bar, body-scrolled page, height
+// measured in script) that behaves differently in a standalone PWA window.
+console.log('\napp shell');
+
+{
+  const css = (await readFile(new URL('../public/style.css', import.meta.url), 'utf8'))
+    .replace(/\/\*[\s\S]*?\*\//g, '');          // the comments discuss both by name
+  expect(!/position:\s*fixed/.test(css), 'no element is position:fixed');
+  expect(!/--hints-height/.test(css), 'no height is measured in script and reserved in CSS');
+
+  const manifest = JSON.parse(
+    await readFile(new URL('../public/manifest.webmanifest', import.meta.url), 'utf8'));
+  expect(manifest.display === 'standalone', 'the manifest asks for a standalone window');
+  expect(manifest.start_url === '/', 'the manifest has a start_url');
+  expect(Array.isArray(manifest.icons) && manifest.icons.length > 0, 'the manifest has icons');
+
+  const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  expect(html.includes('rel="manifest"'), 'the page links its manifest');
+  expect(html.includes('apple-mobile-web-app-capable'), 'iOS is told it may run standalone');
+  expect(html.includes('viewport-fit=cover'), 'the viewport still covers the display');
+
+  const shell = await browser.newContext({ viewport: { width: 874, height: 402 }, hasTouch: true, isMobile: true });
+  const sh = await shell.newPage();
+  const missing = [];
+  sh.on('response', (r) => { if (r.status() >= 400) missing.push(`${r.url()} ${r.status()}`); });
+  await sh.goto(base, { waitUntil: 'networkidle' });
+  for (const asset of ['/manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png']) {
+    const res = await sh.request.get(base + asset);
+    expect(res.ok(), `${asset} is served (${res.status()})`);
+  }
+  expect(missing.length === 0, `the page loads nothing broken ${JSON.stringify(missing)}`);
+
+  // Landscape on a notched phone in a standalone window carries insets on the
+  // sides and along the home bar. env() cannot be emulated, so stand in for it
+  // and check the shell still holds.
+  await sh.addStyleTag({ content:
+    'body { padding-left: 59px !important; padding-right: 59px !important;' +
+    ' padding-bottom: 21px !important; }' });
+  await sh.evaluate(() => {
+    handle('OK'); handle('OK');
+    setup.names = ['Ann', 'Bo']; setup.count = 2;
+    handle('OK'); handle('OK');
+    while (currentScreen() === 'draft') handle('OK');
+    handle('OK'); handle('OK');
+    while (S.q.revealed < 4) handle('OK');
+  });
+
+  const shellState = await sh.evaluate(() => {
+    const scroll = document.querySelector('.screen-scroll');
+    const bar = document.querySelector('.hints');
+    return {
+      hasScroller: !!scroll,
+      barBelowContent: bar.getBoundingClientRect().top >= scroll.getBoundingClientRect().bottom - 1,
+      documentScrolls: document.documentElement.scrollHeight > document.documentElement.clientHeight,
+      barOnScreen: bar.getBoundingClientRect().bottom <= window.innerHeight + 1,
+    };
+  });
+  expect(shellState.hasScroller, 'content sits in its own scrolling region');
+  expect(shellState.barBelowContent, 'the control bar sits below the content, never over it');
+  expect(!shellState.documentScrolls, 'the page itself never scrolls - only the content region does');
+  expect(shellState.barOnScreen, 'the control bar is on screen');
+
+  // And with those insets applied, every option still answers a finger.
+  const deadInset = [];
+  const count = await sh.evaluate(() => document.querySelectorAll('.opt').length);
+  for (let i = 0; i < count; i++) {
+    await sh.evaluate(() => { S.q.sel = null; render(); });
+    const box = await sh.evaluate((idx) => {
+      const r = document.querySelectorAll('.opt')[idx].getBoundingClientRect();
+      const bar = document.querySelector('.hints').getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2, clear: r.bottom <= bar.top + 1 };
+    }, i);
+    if (!box.clear) { await sh.locator('.opt').nth(i).tap(); }
+    else { await sh.touchscreen.tap(box.x, box.y); }
+    if (await sh.evaluate(() => S.q.sel) !== i) deadInset.push(`option ${i}`);
+  }
+  expect(deadInset.length === 0,
+    `landscape with notch insets: every option answers a finger ${JSON.stringify(deadInset)}`);
+  await shell.close();
 }
 
 // ------------------------------------------------------------ television fit

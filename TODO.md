@@ -24,8 +24,10 @@
 - [x] Mouse and touch as a secondary input, with the hint bar doubling as the
       touch control bar and a two-tap select-then-commit on every target
 - [x] Names typed into a real text field, so the TV's own keyboard does the work
-- [x] Layout that adapts on phones: safe-area insets, scrolling instead of
-      clipping, and a control bar fixed to the bottom with its height reserved
+- [x] Layout that adapts on phones: an app shell with its own scrolling content
+      region, safe-area insets, and a control bar that cannot overlap content
+- [x] A web app manifest, so an installed copy runs standalone by declaration
+      rather than by whatever the platform assumes
 - [x] Answer options two-up when the phone is held sideways
 - [x] Type that shrinks to the space actually available, measured per render
 - [x] No repeated questions within a session
@@ -78,8 +80,8 @@
 ## Known rough edges
 
 - On the smallest screens (360×640) with an unusually long question, the last
-  option needs a short scroll. It is reachable and the control bar carries a
-  shadow so content visibly passes beneath it, but it does not all fit at once.
+  option needs a short scroll inside the content region. It is reachable and
+  cannot be hidden behind the control bar, but it does not all fit at once.
 
 - The judge screen drops the score strip when it is showing a question, because
   the two together overflow a 1080p screen. Scores are one press away on the
