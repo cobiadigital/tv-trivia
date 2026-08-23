@@ -101,17 +101,37 @@ than just shrinking:
   and the home indicator would sit on top of the game.
 - Content scrolls instead of being clipped. On a television everything must
   fit; on a phone it can't, at a legible size.
-- The hint bar sticks to the bottom of the viewport. On touch those chips are
-  the controls, so they shouldn't scroll away.
+- The hint bar is **fixed** to the bottom of the viewport, and the page reserves
+  its measured height. On touch those chips are the controls, so they shouldn't
+  scroll away — but a *sticky* bar keeps its place in the flow at the end of the
+  content while painting itself pinned to the bottom, so it covers whatever it
+  scrolls past. That left the last answer option lying underneath an opaque bar,
+  visible but dead to a tap. Fixed takes it out of the flow; `--hints-height` is
+  measured after each render (it wraps to two or three rows depending on the
+  screen) so content can always scroll clear of it.
 - Type and spacing step down, and categories go full width — they're too long
   to sit two-up, and full width makes them the easiest thing to hit.
+- **Held sideways, answer options go two-up.** A landscape phone is about 400px
+  tall and 870px wide: in one column the last option fell below the fold and the
+  one above it landed under the control bar, so half the board was untappable
+  without discovering that the page scrolls. Two columns fit the whole thing.
+- After each render, `shrinkToFit` measures whether the question screen actually
+  fits and steps the type scale down until it does. Question and option lengths
+  vary too much, across too many viewports, for a fixed budget to hold.
 
 The root font size is fixed on phones rather than scaled to viewport height:
 `2.2vh` is right for a panel and much too large for a phone.
 
-Checked at 393×659, 402×734, 440×782, 874×402 landscape, and 360×640.
+Checked at 393×659, 402×734, 440×782, 360×640 and their landscape rotations.
 Playwright has no iPhone 17 Pro profile, so those brackets straddle it rather
 than matching it exactly.
+
+The touch guarantee is deliberately in two parts. Anything drawn clear of the
+control bar must answer a tap **where it sits** — checked with raw-coordinate
+taps, because Playwright's `.tap()` scrolls the target into view first and would
+paper over exactly this bug. Anything the bar overlaps must still be reachable
+by scrolling: on the smallest screens the longest questions genuinely do not
+fit, and scrolling to them is ordinary, but silently swallowing a tap is not.
 
 ## Question bank
 

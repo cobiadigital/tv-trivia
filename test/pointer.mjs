@@ -166,7 +166,9 @@ const VIEWPORTS = [
   ['iPhone 17 Pro', 402, 734],
   ['iPhone 17 Pro Max', 440, 782],
   ['iPhone 17 Pro landscape', 874, 402],
+  ['iPhone 15 Pro landscape', 734, 393],
   ['small Android', 360, 640],
+  ['small Android landscape', 640, 360],
 ];
 
 console.log('\nsmall screens');
@@ -188,7 +190,14 @@ for (const [label, width, height] of VIEWPORTS) {
     while (currentScreen() === 'draft') handle('OK');
     handle('OK');
     handle('OK');
-    handle('OK'); handle('OK'); handle('OK'); handle('OK');
+    // Pin worst-case content: otherwise this test passes or fails on whichever
+    // question the bank happened to deal.
+    S.q.text = 'Which of these long-winded and thoroughly padded questions is ' +
+      'the one that wraps onto several lines on a small screen?';
+    S.q.options = [0, 1, 2, 3].map((n) => 'A thoroughly padded answer option ' + n);
+    S.q.correctIdx = 0;
+    S.q.revealed = 4;
+    render();
   });
 
   const m = await sp.evaluate(() => {
@@ -219,6 +228,54 @@ for (const [label, width, height] of VIEWPORTS) {
     `${label}: question text is legible but fits (${m.questionSize}px)`);
   expect(m.small.length === 0, `${label}: touch targets clear 32px ${JSON.stringify(m.small)}`);
   expect(perr.length === 0, `${label}: no page errors`);
+
+  // The guarantee is twofold, and the split matters. Anything drawn clear of the
+  // control bar must answer a tap where it sits - that is what broke when the
+  // bar was sticky, leaving the last option lying underneath it, opaque and
+  // dead. Anything the bar does overlap must still be reachable by scrolling;
+  // on the smallest screens the longest questions genuinely do not fit, and
+  // scrolling to them is ordinary, but silently swallowing a tap is not.
+  const clear = await sp.evaluate(() => {
+    const bar = document.querySelector('.hints').getBoundingClientRect();
+    const bad = [];
+    document.querySelectorAll('[data-act],[data-pick]').forEach((el) => {
+      const r = el.getBoundingClientRect();
+      if (r.top < 0 || r.bottom > bar.top + 1) return;      // not drawn clear
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      if (!hit || !(hit === el || el.contains(hit))) {
+        bad.push(`${(el.textContent || '').trim().slice(0, 18)} under ${hit ? hit.className : 'nothing'}`);
+      }
+    });
+    return bad;
+  });
+  expect(clear.length === 0,
+    `${label}: everything drawn clear of the control bar is tappable ${JSON.stringify(clear)}`);
+
+  // A real finger taps where the thing is now. Playwright's .tap() scrolls it
+  // into view first, which is exactly how the original bug went unnoticed - so
+  // tap by raw coordinates for the at-rest check.
+  const optionCount = await sp.evaluate(() => document.querySelectorAll('.opt').length);
+  const dead = [];
+  let needScroll = 0;
+  for (let i = 0; i < optionCount; i++) {
+    await sp.evaluate(() => { S.q.sel = null; render(); });
+    const box = await sp.evaluate((idx) => {
+      const r = document.querySelectorAll('.opt')[idx].getBoundingClientRect();
+      const bar = document.querySelector('.hints').getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2, clear: r.bottom <= bar.top + 1 };
+    }, i);
+    if (box.clear) {
+      await sp.touchscreen.tap(box.x, box.y);
+      if (await sp.evaluate(() => S.q.sel) !== i) dead.push(`option ${i} tapped at rest -> nothing`);
+    } else {
+      needScroll++;
+      await sp.locator('.opt').nth(i).tap();          // scrolls, then taps
+      if (await sp.evaluate(() => S.q.sel) !== i) dead.push(`option ${i} unreachable even scrolled`);
+    }
+  }
+  expect(dead.length === 0, `${label}: every option answers a finger ${JSON.stringify(dead)}`);
+  if (needScroll) console.log(`       (${needScroll} of ${optionCount} options need a scroll here)`);
+
   await ctx.close();
 }
 

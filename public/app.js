@@ -821,6 +821,41 @@ function optionRows(q, opts) {
 function render() {
   var el = document.getElementById('screen');
   el.innerHTML = view();
+  syncHintsHeight();
+  shrinkToFit();
+}
+
+// densityClass() guesses a type scale from how much text there is. This checks
+// what actually happened and steps the scale down until the screen genuinely
+// fits. Question and option lengths vary far too much - and viewports differ
+// too much - for any fixed budget to hold everywhere. Without it the tail of
+// the board ends up under the control bar, visible but dead to a tap.
+function shrinkToFit() {
+  var root = document.documentElement;
+  var block = document.querySelector('.qblock');
+  if (!root || !block || !block.className) return;
+
+  var match = /dense-(\d)/.exec(block.className);
+  var level = match ? Number(match[1]) : 0;
+
+  while (level < 3 && root.scrollHeight > root.clientHeight) {
+    level++;
+    block.className = 'qblock dense-' + level;
+  }
+}
+
+// On small screens the control bar is fixed to the bottom of the viewport, so
+// the page has to reserve exactly its height - it wraps to two or three rows
+// depending on the screen and the hints - or content ends up underneath it,
+// where it cannot be tapped. Measure it rather than guessing at a constant.
+function syncHintsHeight() {
+  var root = document.documentElement;
+  if (!root || !root.style || !root.style.setProperty) return;
+  var bar = document.querySelector('.hints');
+  var height = (bar && bar.getBoundingClientRect)
+    ? Math.ceil(bar.getBoundingClientRect().height)
+    : 0;
+  root.style.setProperty('--hints-height', height + 'px');
 }
 
 function currentScreen() {
@@ -1171,7 +1206,11 @@ function handle(a) {
 
   // ---------------------------------------------------------------- boot
   if (!S) {
-    if (loadError) { if (a === 'OK') loadBank(); return; }
+    if (loadError) { if (a === 'OK') // Rotating the phone rewraps the bar, so the reserved space has to follow.
+window.addEventListener('resize', syncHintsHeight);
+window.addEventListener('orientationchange', syncHintsHeight);
+
+loadBank(); return; }
     if (!bank) return;
     if (!setup) {
       if (a === 'OK') { setup = { count: 4, playerIdx: 0, names: [], screen: 'setupCount' }; }
@@ -1398,6 +1437,7 @@ function handle(a) {
 
 function renderSetup() {
   document.getElementById('screen').innerHTML = view();
+  syncHintsHeight();
   focusNameField();
 }
 
@@ -1631,5 +1671,9 @@ document.addEventListener('click', function (e) {
     node = node.parentNode;
   }
 });
+
+// Rotating the phone rewraps the bar, so the reserved space has to follow.
+window.addEventListener('resize', syncHintsHeight);
+window.addEventListener('orientationchange', syncHintsHeight);
 
 loadBank();

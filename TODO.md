@@ -25,7 +25,9 @@
       touch control bar and a two-tap select-then-commit on every target
 - [x] Names typed into a real text field, so the TV's own keyboard does the work
 - [x] Layout that adapts on phones: safe-area insets, scrolling instead of
-      clipping, and a control bar stuck to the bottom
+      clipping, and a control bar fixed to the bottom with its height reserved
+- [x] Answer options two-up when the phone is held sideways
+- [x] Type that shrinks to the space actually available, measured per render
 - [x] No repeated questions within a session
 - [x] Free-answer filter for the speed round and final
 - [x] Headless test harness that plays full games and asserts the rules
@@ -74,6 +76,10 @@
 - [ ] **Sound.** A reveal tick and a lock sting would carry a lot of the pacing.
 
 ## Known rough edges
+
+- On the smallest screens (360×640) with an unusually long question, the last
+  option needs a short scroll. It is reachable and the control bar carries a
+  shadow so content visibly passes beneath it, but it does not all fit at once.
 
 - The judge screen drops the score strip when it is showing a question, because
   the two together overflow a 1080p screen. Scores are one press away on the
