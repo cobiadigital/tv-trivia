@@ -363,23 +363,32 @@ h2 {
    Narrow OR short: a phone held sideways is 874x402, wider than any phone
    breakpoint but far too short for the television layout. */
 @media (max-width: 799px), (max-height: 550px) {
+  /* An app shell. The page itself never scrolls - the content region does -
+     so nothing is position:fixed and no height is measured in script. That
+     matters most in a standalone PWA window, where a fixed bar above a
+     body-scrolled page is exactly the arrangement that misbehaves. */
+  html, body { height: 100%; }
+
   body {
+    min-height: 0;
     padding:
       calc(env(safe-area-inset-top, 0px) + 0.9rem)
       calc(env(safe-area-inset-right, 0px) + 1rem)
-      /* Reserve exactly the height of the fixed control bar, measured after
-         each render, so content can always scroll clear of it. */
-      calc(var(--hints-height, 6rem) + 0.6rem)
+      calc(env(safe-area-inset-bottom, 0px) + 0.5rem)
       calc(env(safe-area-inset-left, 0px) + 1rem);
+    overflow: hidden;
+  }
+
+  #screen { height: 100%; min-height: 0; }
+
+  .screen-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
-    overscroll-behavior-y: contain;
+    overscroll-behavior: contain;
   }
-
-  /* The control bar is out of the flow, so nothing needs stretching to push
-     it down and a minimum height would only invent phantom scroll space. */
-  #screen { min-height: 0; }
 
   h1 { font-size: 2.4rem; margin-bottom: 1rem; }
   h2 { font-size: 1.5rem; margin-bottom: 0.8rem; }
@@ -453,33 +462,16 @@ h2 {
   .rank { font-size: 1.4rem; margin-bottom: 0.6rem; }
   .rank .pos { min-width: 2.2rem; }
 
-  /* The hint chips are the controls on a touch screen, so they stay put
-     instead of scrolling away with the content.
-
-     Fixed, not sticky. A sticky bar keeps its place in the flow at the end of
-     the content but paints itself pinned to the bottom of the viewport, so it
-     covers whatever it scrolls past - which left the last answer option lying
-     underneath it, opaque and untappable, on any screen tall enough to
-     overflow. Landscape hit it every time, being only ~400px tall. Fixed takes
-     the bar out of the flow entirely and body reserves its measured height. */
+  /* The chips are the controls on a touch screen, so the bar holds its place
+     at the bottom of the shell while the content scrolls beside it. As an
+     ordinary flex sibling it cannot overlap that content at all - which is
+     what a sticky, and then a fixed, bar both managed to do. */
   .hints {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 5;
+    flex: 0 0 auto;
     margin-top: 0;
-    background: var(--bg);
-    border-top: 2px solid var(--line);
     font-size: 1rem;
-    padding:
-      0.55rem
-      calc(env(safe-area-inset-right, 0px) + 1rem)
-      calc(env(safe-area-inset-bottom, 0px) + 0.55rem)
-      calc(env(safe-area-inset-left, 0px) + 1rem);
-    /* Reads as something content passes beneath, rather than as the end of
-       the page - which matters on the small screens where it cannot all fit. */
-    box-shadow: 0 -0.7rem 1rem rgba(11, 14, 23, 0.9);
+    padding-top: 0.7rem;
+    padding-bottom: 0.1rem;
   }
   .hint { margin-right: 0.85rem; margin-bottom: 0.2rem; }
   .hint-label { font-size: 0.9rem; margin-left: 0.3rem; }

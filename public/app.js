@@ -9,7 +9,7 @@
 
 // Kept in step with package.json by a test, since nothing at runtime can read
 // package.json to derive it.
-var VERSION = '0.1.6';
+var VERSION = '0.1.7';
 
 var TUNING = {
   speedBaseSeconds: 45,        // open question in the design doc: try 45 vs 60
@@ -831,8 +831,35 @@ function optionRows(q, opts) {
 function render() {
   var el = document.getElementById('screen');
   el.innerHTML = view();
-  syncHintsHeight();
+  layoutShell();
   shrinkToFit();
+}
+
+// Every view emits its hint bar last. Move everything ahead of it into its own
+// scrolling region, so the bar is an ordinary sibling that content scrolls
+// inside of, never underneath. Doing it here keeps the twenty-odd view cases
+// free of layout scaffolding.
+//
+// This replaces a bar that was position:fixed over a scrolling page, with
+// script measuring its height so the page could reserve room below. That rested
+// on three things that all behave differently in a standalone PWA window: a
+// fixed element above a body-scrolled page, the document being the scroller,
+// and a measured height staying current across a rotation. Nothing here is
+// fixed and nothing is measured, so the bar cannot be painted over the content
+// and there is no reserve to go stale.
+function layoutShell() {
+  var screen = document.getElementById('screen');
+  if (!screen || !screen.querySelector || !document.createElement) return;
+
+  var hints = screen.querySelector('.hints');
+  if (!hints) return;
+
+  var scroll = document.createElement('div');
+  scroll.className = 'screen-scroll';
+  while (screen.firstChild && screen.firstChild !== hints) {
+    scroll.appendChild(screen.firstChild);
+  }
+  screen.insertBefore(scroll, hints);
 }
 
 // densityClass() guesses a type scale from how much text there is. This checks
@@ -845,27 +872,21 @@ function shrinkToFit() {
   var block = document.querySelector('.qblock');
   if (!root || !block || !block.className) return;
 
+  var scroller = document.querySelector('.screen-scroll');
   var match = /dense-(\d)/.exec(block.className);
   var level = match ? Number(match[1]) : 0;
 
-  while (level < 3 && root.scrollHeight > root.clientHeight) {
+  while (level < 3 && doesNotFit(scroller, root)) {
     level++;
     block.className = 'qblock dense-' + level;
   }
 }
 
-// On small screens the control bar is fixed to the bottom of the viewport, so
-// the page has to reserve exactly its height - it wraps to two or three rows
-// depending on the screen and the hints - or content ends up underneath it,
-// where it cannot be tapped. Measure it rather than guessing at a constant.
-function syncHintsHeight() {
-  var root = document.documentElement;
-  if (!root || !root.style || !root.style.setProperty) return;
-  var bar = document.querySelector('.hints');
-  var height = (bar && bar.getBoundingClientRect)
-    ? Math.ceil(bar.getBoundingClientRect().height)
-    : 0;
-  root.style.setProperty('--hints-height', height + 'px');
+// Small screens scroll inside .screen-scroll; a television does not scroll at
+// all and overflows the document instead. Either one means it did not fit.
+function doesNotFit(scroller, root) {
+  if (scroller && scroller.scrollHeight > scroller.clientHeight + 1) return true;
+  return root.scrollHeight > root.clientHeight;
 }
 
 function currentScreen() {
@@ -1219,11 +1240,7 @@ function handle(a) {
 
   // ---------------------------------------------------------------- boot
   if (!S) {
-    if (loadError) { if (a === 'OK') // Rotating the phone rewraps the bar, so the reserved space has to follow.
-window.addEventListener('resize', syncHintsHeight);
-window.addEventListener('orientationchange', syncHintsHeight);
-
-loadBank(); return; }
+    if (loadError) { if (a === 'OK') loadBank(); return; }
     if (!bank) return;
     if (!setup) {
       if (a === 'OK') { setup = { count: 4, playerIdx: 0, names: [], screen: 'setupCount' }; }
@@ -1450,7 +1467,8 @@ loadBank(); return; }
 
 function renderSetup() {
   document.getElementById('screen').innerHTML = view();
-  syncHintsHeight();
+  layoutShell();
+  shrinkToFit();
   focusNameField();
 }
 
@@ -1685,8 +1703,16 @@ document.addEventListener('click', function (e) {
   }
 });
 
-// Rotating the phone rewraps the bar, so the reserved space has to follow.
-window.addEventListener('resize', syncHintsHeight);
-window.addEventListener('orientationchange', syncHintsHeight);
+// A rotation re-lays-out everything and the type scale has to be recomputed
+// from scratch, since shrinkToFit only ever steps down and cannot recover on
+// its own.
+function relayout() {
+  if (isTyping()) return;          // a keyboard opening is not a rotation
+  if (setup) renderSetup();
+  else if (S) render();
+}
+
+window.addEventListener('resize', relayout);
+window.addEventListener('orientationchange', relayout);
 
 loadBank();

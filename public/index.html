@@ -4,6 +4,21 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Remote Trivia</title>
+
+<!-- Added to a home screen this runs standalone. Without a manifest iOS was
+     deciding for itself what that meant, which is no way to reason about a
+     layout bug that only appears there. -->
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0b0e17">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Remote Trivia">
+<!-- Translucent so the page runs edge to edge; the safe-area insets in
+     style.css are what keep content clear of the status bar and home bar. -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" href="/icon-192.png" type="image/png">
+
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
