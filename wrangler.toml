@@ -1,0 +1,9 @@
+name = "tv-trivia"
+main = "src/index.js"
+compatibility_date = "2025-09-23"
+
+# Static assets are served first; anything that doesn't match a file in
+# ./public falls through to the Worker in src/index.js.
+[assets]
+directory = "./public"
+binding = "ASSETS"

@@ -1,0 +1,270 @@
+/* TV-first styling: high contrast, no hover states, everything inside a 5%
+   overscan-safe margin. Deliberately avoids flex `gap`, clamp() and :is() so
+   that older TV browser engines (Tizen / webOS / Fire TV) render it correctly. */
+
+:root {
+  --bg: #0b0e17;
+  --panel: #161b2b;
+  --panel-2: #1f2537;
+  --ink: #f2f5ff;
+  --dim: #93a0c0;
+  --accent: #ffd23f;
+  --good: #38d17a;
+  --bad: #ff5d5d;
+  --line: #2c344c;
+}
+
+* { box-sizing: border-box; }
+
+html {
+  font-size: 20px;
+  background: var(--bg);
+}
+@media (min-height: 700px) {
+  html { font-size: 2.2vh; }
+}
+
+body {
+  margin: 0;
+  padding: 5vh 5vw;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 1.4rem;
+  line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+#screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 90vh;
+}
+
+/* ---------------------------------------------------------------- headings */
+
+.eyebrow {
+  font-size: 1.1rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 0.6rem;
+}
+
+h1 {
+  font-size: 4.4rem;
+  line-height: 1.05;
+  margin: 0 0 1.5rem;
+  letter-spacing: -0.01em;
+}
+
+h2 {
+  font-size: 2.4rem;
+  margin: 0 0 1.2rem;
+}
+
+.grow { flex: 1 1 auto; }
+
+/* ------------------------------------------------------------------ status */
+
+.statusbar {
+  display: flex;
+  flex-wrap: wrap;
+  border-bottom: 2px solid var(--line);
+  padding-bottom: 0.8rem;
+  margin-bottom: 1.6rem;
+}
+
+.statusbar .slot {
+  margin-right: 1.6rem;
+  font-size: 1.15rem;
+  color: var(--dim);
+}
+
+.statusbar .slot b {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+/* ------------------------------------------------------------------ player */
+
+.playerstrip { display: flex; flex-wrap: wrap; margin-bottom: 1.4rem; }
+
+.pcard {
+  border: 3px solid var(--line);
+  border-radius: 0.7rem;
+  padding: 0.7rem 1.1rem;
+  margin: 0 0.8rem 0.8rem 0;
+  background: var(--panel);
+  min-width: 9rem;
+}
+
+.pcard.up {
+  border-color: var(--accent);
+  background: var(--panel-2);
+}
+
+.pcard .pname {
+  font-size: 1.2rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pcard .pscore { font-size: 2rem; font-weight: 800; color: var(--accent); }
+.pcard .pledger { font-size: 1rem; color: var(--dim); letter-spacing: 0.08em; }
+
+/* ----------------------------------------------------------------- options */
+
+.question {
+  font-size: 3.1rem;
+  line-height: 1.2;
+  font-weight: 700;
+  margin: 0 0 2rem;
+  max-width: 40ch;
+}
+
+.options { display: block; }
+
+.opt {
+  display: flex;
+  align-items: center;
+  border: 4px solid var(--line);
+  border-radius: 0.7rem;
+  background: var(--panel);
+  padding: 0.85rem 1.2rem;
+  margin-bottom: 0.8rem;
+  font-size: 1.7rem;
+  min-height: 4.2rem;
+}
+
+.opt .letter {
+  font-weight: 800;
+  color: var(--dim);
+  margin-right: 1.1rem;
+  min-width: 2rem;
+}
+
+.opt.hidden { opacity: 0.35; }
+.opt.hidden .text { color: var(--dim); font-style: italic; }
+
+.opt.sel {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 6px rgba(255, 210, 63, 0.28);
+  background: var(--panel-2);
+}
+
+.opt.correct { border-color: var(--good); background: rgba(56, 209, 122, 0.18); }
+.opt.wrong { border-color: var(--bad); background: rgba(255, 93, 93, 0.18); }
+.opt.dead { opacity: 0.3; }
+
+/* -------------------------------------------------------------------- tiles */
+
+.tiles { display: flex; flex-wrap: wrap; }
+
+.tile {
+  border: 4px solid var(--line);
+  border-radius: 0.7rem;
+  background: var(--panel);
+  padding: 1rem 1.4rem;
+  margin: 0 0.9rem 0.9rem 0;
+  font-size: 1.9rem;
+  font-weight: 700;
+  text-align: center;
+  min-width: 4.5rem;
+}
+
+.tile.sel {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 6px rgba(255, 210, 63, 0.28);
+  background: var(--panel-2);
+}
+
+.tile.spent { opacity: 0.3; text-decoration: line-through; }
+.tile.gone { opacity: 0.25; text-decoration: line-through; border-style: dashed; }
+.tile.wide { min-width: 14rem; text-align: left; font-size: 1.5rem; }
+
+/* -------------------------------------------------------------------- verdict */
+
+.verdict { font-size: 3.6rem; font-weight: 800; margin-bottom: 0.8rem; }
+.verdict.good { color: var(--good); }
+.verdict.bad { color: var(--bad); }
+
+.bignum { font-size: 6rem; font-weight: 800; color: var(--accent); line-height: 1; }
+.answer { font-size: 2.6rem; font-weight: 700; color: var(--good); margin: 1rem 0; }
+.note { font-size: 1.3rem; color: var(--dim); margin-top: 0.7rem; max-width: 46ch; }
+
+.clock {
+  font-size: 7rem;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 1.4rem;
+  font-variant-numeric: tabular-nums;
+}
+.clock.low { color: var(--bad); }
+
+/* -------------------------------------------------------------------- keyboard */
+
+.kbd-row { display: flex; }
+
+.key {
+  border: 3px solid var(--line);
+  border-radius: 0.5rem;
+  background: var(--panel);
+  width: 3.4rem;
+  height: 3.4rem;
+  margin: 0 0.5rem 0.5rem 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.key.wide { width: 7.3rem; font-size: 1.1rem; }
+
+.key.sel {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 5px rgba(255, 210, 63, 0.28);
+  background: var(--panel-2);
+}
+
+.nameline {
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  border-bottom: 4px solid var(--accent);
+  display: inline-block;
+  min-width: 12rem;
+  padding-bottom: 0.3rem;
+  margin-bottom: 1.4rem;
+}
+
+/* ---------------------------------------------------------------- scoreboard */
+
+.rank { display: flex; align-items: baseline; margin-bottom: 0.9rem; font-size: 2.2rem; }
+.rank .pos { color: var(--dim); min-width: 3.5rem; font-weight: 800; }
+.rank .nm { flex: 1 1 auto; font-weight: 700; }
+.rank .sc { color: var(--accent); font-weight: 800; margin-left: 1.5rem; }
+.rank.first .nm, .rank.first .sc { color: var(--accent); }
+
+/* --------------------------------------------------------------------- hints */
+
+.hints {
+  margin-top: auto;
+  padding-top: 1.2rem;
+  border-top: 2px solid var(--line);
+  color: var(--dim);
+  font-size: 1.15rem;
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.hints span { margin-right: 1.8rem; white-space: nowrap; }
+.hints b { color: var(--ink); font-weight: 700; }
+
+.catlist { color: var(--dim); font-size: 1.2rem; margin-bottom: 1.2rem; }
+.catlist b { color: var(--ink); }
