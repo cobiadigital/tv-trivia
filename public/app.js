@@ -853,13 +853,15 @@ function view() {
         tiles += '<div class="tile' + (spent ? ' spent' : '') + (isCursor ? ' sel' : '') + '">' + v + '</div>';
       }
       var value = p.ledger[S.wagerCursor];
+      var tier = DIFFICULTY_NAMES[DIFFICULTY_FOR_VALUE[value]];
       return statusBar(['Up: <b>' + esc(p.name) + '</b>']) +
         '<div class="eyebrow">Category</div>' +
         '<h1>' + esc(bank.catName[categoryId]) + '</h1>' +
         '<div class="tiles">' + tiles + '</div>' +
-        '<div class="note">Wagering <b>' + value + '</b> draws a <b>' +
-        DIFFICULTY_NAMES[DIFFICULTY_FOR_VALUE[value]] + '</b> question. ' +
+        '<div class="note">Wagering <b>' + value + '</b> draws ' +
+        (tier === 'Easy' ? 'an' : 'a') + ' <b>' + tier + '</b> question. ' +
         'Choose before any options are revealed.</div>' +
+        playerStrip(currentPlayerIdx(), true) +
         hintBar([['←→', 'choose wager'], ['OK', 'lock it in'], ['Back', 'undo']]);
     }
 
