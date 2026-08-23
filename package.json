@@ -1,7 +1,7 @@
 {
   "name": "tv-trivia",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.6",
   "description": "Remote Trivia - a TV-browser trivia game driven entirely by one remote.",
   "scripts": {
     "deploy": "wrangler deploy",

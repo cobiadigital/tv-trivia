@@ -64,6 +64,39 @@ for (const names of [['Ann', 'Bo'], ['Ann', 'Bo', 'Cy']]) {
 
 console.log('\nrules');
 
+check('the version shown matches package.json', () => {
+  const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+  const g = makeGame(bank);
+  if (g.ctx.VERSION !== pkg.version) {
+    throw new Error(`app.js says ${g.ctx.VERSION}, package.json says ${pkg.version}`);
+  }
+  if (!/^\d+\.\d+\.\d+$/.test(pkg.version)) throw new Error('not a version: ' + pkg.version);
+});
+
+check('the version is on the title screen and nowhere else', () => {
+  const g = makeGame(bank);
+  const shown = () => /class="version">v([\d.]+)</.exec(g.html());
+
+  g.ctx.renderSetup();                             // paint the attract screen
+  const tag = shown();
+  if (!tag) throw new Error('no version on the attract screen');
+  if (tag[1] !== g.ctx.VERSION) throw new Error('shows ' + tag[1]);
+
+  g.press('OK');                                   // attract -> player count
+  if (g.screen() !== 'setupCount') throw new Error('did not leave the title screen');
+  if (shown()) throw new Error('the version leaked past the title screen');
+
+  // Still there when the bank fails, which is when it is most worth reading.
+  const broken = makeGame(bank);
+  broken.ctx.bank = null;
+  broken.ctx.loadError = 'HTTP 500';
+  broken.ctx.renderSetup();
+  if (broken.screen() !== 'error') throw new Error('expected the error screen');
+  if (!/class="version"/.test(broken.html())) {
+    throw new Error('no version on the error screen');
+  }
+});
+
 check('difficulty is a property of the section, not the wager', () => {
   const g = makeGame(bank);
   const [one, two] = g.ctx.SECTIONS;
