@@ -355,7 +355,9 @@ h2 {
     padding:
       calc(env(safe-area-inset-top, 0px) + 0.9rem)
       calc(env(safe-area-inset-right, 0px) + 1rem)
-      calc(env(safe-area-inset-bottom, 0px) + 0.6rem)
+      /* Reserve exactly the height of the fixed control bar, measured after
+         each render, so content can always scroll clear of it. */
+      calc(var(--hints-height, 6rem) + 0.6rem)
       calc(env(safe-area-inset-left, 0px) + 1rem);
     overflow-y: auto;
     overflow-x: hidden;
@@ -363,12 +365,9 @@ h2 {
     overscroll-behavior-y: contain;
   }
 
-  /* dvh tracks the collapsing browser chrome on iOS; vh is the fallback. */
-  #screen {
-    min-height: 88vh;
-    min-height: calc(100dvh - env(safe-area-inset-top, 0px)
-                            - env(safe-area-inset-bottom, 0px) - 1.5rem);
-  }
+  /* The control bar is out of the flow, so nothing needs stretching to push
+     it down and a minimum height would only invent phantom scroll space. */
+  #screen { min-height: 0; }
 
   h1 { font-size: 2.4rem; margin-bottom: 1rem; }
   h2 { font-size: 1.5rem; margin-bottom: 0.8rem; }
@@ -410,8 +409,15 @@ h2 {
   .qblock.dense-2 .question { font-size: 1.35rem; }
   .qblock.dense-3 .question { font-size: 1.2rem; }
   .qblock.dense-1 .opt { font-size: 1.1rem; min-height: 2.9rem; }
-  .qblock.dense-2 .opt { font-size: 1.05rem; min-height: 2.7rem; }
-  .qblock.dense-3 .opt { font-size: 1rem; min-height: 2.6rem; }
+  .qblock.dense-2 .opt {
+    font-size: 1.05rem; min-height: 2.7rem;
+    padding: 0.45rem 0.7rem; line-height: 1.25;
+  }
+  .qblock.dense-3 .opt {
+    font-size: 1rem; min-height: 2.6rem;
+    padding: 0.35rem 0.6rem; line-height: 1.2; margin-bottom: 0.4rem;
+  }
+  .qblock.dense-3 .question { line-height: 1.15; }
 
   .namefield { font-size: 1.6rem; max-width: none; border-width: 3px; }
   /* The field runs the full width here, so an outset glow would be clipped. */
@@ -436,25 +442,91 @@ h2 {
   .rank .pos { min-width: 2.2rem; }
 
   /* The hint chips are the controls on a touch screen, so they stay put
-     instead of scrolling away with the content. */
+     instead of scrolling away with the content.
+
+     Fixed, not sticky. A sticky bar keeps its place in the flow at the end of
+     the content but paints itself pinned to the bottom of the viewport, so it
+     covers whatever it scrolls past - which left the last answer option lying
+     underneath it, opaque and untappable, on any screen tall enough to
+     overflow. Landscape hit it every time, being only ~400px tall. Fixed takes
+     the bar out of the flow entirely and body reserves its measured height. */
   .hints {
-    position: sticky;
+    position: fixed;
+    left: 0;
+    right: 0;
     bottom: 0;
-    z-index: 2;
+    z-index: 5;
+    margin-top: 0;
     background: var(--bg);
+    border-top: 2px solid var(--line);
     font-size: 1rem;
-    padding-bottom: 0.3rem;
+    padding:
+      0.55rem
+      calc(env(safe-area-inset-right, 0px) + 1rem)
+      calc(env(safe-area-inset-bottom, 0px) + 0.55rem)
+      calc(env(safe-area-inset-left, 0px) + 1rem);
+    /* Reads as something content passes beneath, rather than as the end of
+       the page - which matters on the small screens where it cannot all fit. */
+    box-shadow: 0 -0.7rem 1rem rgba(11, 14, 23, 0.9);
   }
-  .hint { margin-right: 1rem; }
-  .hint-label { font-size: 0.95rem; }
+  .hint { margin-right: 0.85rem; margin-bottom: 0.2rem; }
+  .hint-label { font-size: 0.9rem; margin-left: 0.3rem; }
+  .hint-key { min-width: 2.4rem; min-height: 2.4rem; padding: 0 0.45rem; }
+}
+
+/* Narrow phones. The control bar wrapped to three rows here - a quarter of the
+   screen - which pushed the last option underneath it. Shrink the labels and
+   the gaps rather than the chips, so the touch targets stay full size. */
+@media (max-width: 420px) {
+  .hint { margin-right: 0.6rem; }
+  .hint-label { font-size: 0.8rem; margin-left: 0.25rem; }
+  .hint-key { padding: 0 0.35rem; }
+
+  .statusbar { margin-bottom: 0.7rem; }
+  .statusbar .slot { font-size: 0.85rem; margin-right: 0.7rem; }
+
+  .catlist { font-size: 0.85rem; margin-bottom: 0.7rem; }
+  .question { margin-bottom: 0.9rem; }
+  .opt { min-height: 2.9rem; margin-bottom: 0.45rem; }
 }
 
 /* A phone held sideways: the same rules, with the vertical rhythm squeezed. */
 @media (max-height: 550px) and (max-width: 1100px) {
   h1 { font-size: 1.9rem; margin-bottom: 0.6rem; }
   .question { font-size: 1.35rem; margin-bottom: 0.7rem; }
-  .opt { min-height: 2.6rem; margin-bottom: 0.4rem; font-size: 1.05rem; }
+  .qblock.dense-1 .question { font-size: 1.25rem; }
+  .qblock.dense-2 .question { font-size: 1.15rem; }
+  .qblock.dense-3 .question { font-size: 1.05rem; }
   .clock, .bignum { font-size: 2.6rem; margin-bottom: 0.5rem; }
   .verdict { font-size: 1.7rem; }
+  .verdict.tight { font-size: 1.3rem; }
   .playerstrip { margin-bottom: 0.6rem; }
+  .statusbar { margin-bottom: 0.6rem; }
+  .catlist { margin-bottom: 0.6rem; }
+}
+
+/* Sideways there is width to spare and no height at all, so the options go
+   two-up. In one column the last of them fell below the fold - and the one
+   above it landed under the control bar - which is what made the bottom half
+   of the board untappable without discovering that the page scrolls. */
+@media (max-height: 550px) and (min-width: 600px) and (max-width: 1100px) {
+  .options { display: flex; flex-wrap: wrap; }
+
+  .opt {
+    width: calc(50% - 0.3rem);
+    margin-right: 0.6rem;
+    margin-bottom: 0.5rem;
+    min-height: 2.6rem;
+    font-size: 1.05rem;
+  }
+  .opt:nth-child(2n) { margin-right: 0; }
+
+  .qblock.dense-1 .opt,
+  .qblock.dense-2 .opt,
+  .qblock.dense-3 .opt { min-height: 2.5rem; font-size: 1rem; }
+}
+
+/* Sideways on something narrow enough that two columns would not fit. */
+@media (max-height: 550px) and (max-width: 599px) {
+  .opt { min-height: 2.5rem; margin-bottom: 0.35rem; font-size: 1rem; }
 }
