@@ -9,7 +9,7 @@
 
 // Kept in step with package.json by a test, since nothing at runtime can read
 // package.json to derive it.
-var VERSION = '0.1.6';
+var VERSION = '0.1.7';
 
 var TUNING = {
   speedBaseSeconds: 45,        // open question in the design doc: try 45 vs 60
