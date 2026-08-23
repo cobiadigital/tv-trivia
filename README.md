@@ -92,10 +92,12 @@ number buttons reach the page they are the faster way to play, and on a remote
 whose arrows never arrive they may be the only keys that do.
 
 Whether a given set delivers digits to page content is not something this
-repository can answer. The title screen shows the last key the page actually
-received, blank until something arrives — press a button and it either names the
-key and its code or it does not appear at all. There is no console on a
-television, so the screen has to answer the question itself.
+repository can answer. The title and setup screens show the last input the page
+actually received, blank until something arrives — press a button and it either
+names the key and its code or it does not appear at all. Taps are reported too
+(`tap LEFT`, `tap #3`), which separates *a control that did nothing* from *a tap
+that never arrived*. There is no console on a television, so the screen has to
+answer the question itself.
 
 ### Entering names
 
