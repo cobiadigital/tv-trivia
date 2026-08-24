@@ -573,3 +573,23 @@ h2 {
   max-width: 70ch;
   margin-top: 0.4rem;
 }
+
+/* Samsung televisions offer "link browsing", where the D-pad walks the
+   browser's own focus between focusable elements instead of driving a pointer.
+   The focus ring is the only thing showing where you are, so it has to be as
+   loud as the cursor highlight - and it must never be removed, which is the
+   one thing an outline reset would do here. */
+[data-act]:focus,
+[data-pick]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 5px rgba(255, 210, 63, 0.45);
+  background: var(--panel-2);
+}
+
+/* Where the browser distinguishes them, keep the ring for keyboard and remote
+   focus and drop it for a plain click, which already has the pressed state. */
+[data-act]:focus:not(:focus-visible),
+[data-pick]:focus:not(:focus-visible) {
+  box-shadow: none;
+}

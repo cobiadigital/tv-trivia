@@ -363,6 +363,71 @@ console.log('\nnumber keys');
   await ctx.close();
 }
 
+// ------------------------------------------------------------ link browsing
+
+// Samsung televisions offer "link browsing", where the D-pad walks the
+// browser's own focus between focusable elements rather than driving a
+// pointer. Nothing here was focusable, so it found no controls at all and fell
+// back to selecting the single element that had a click handler - the block
+// wrapping the whole screen.
+console.log('\nlink browsing');
+
+{
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+  const page = await ctx.newPage();
+  const errs = [];
+  page.on('pageerror', (e) => errs.push(e.message));
+  await page.goto(base, { waitUntil: 'networkidle' });
+
+  const at = () => page.evaluate(() => currentScreen());
+
+  const reachable = await page.evaluate(() => {
+    const all = [...document.querySelectorAll('[data-act],[data-pick]')];
+    return { count: all.length, allFocusable: all.every((el) => el.tabIndex >= 0) };
+  });
+  expect(reachable.count > 0 && reachable.allFocusable,
+    `every control is reachable by focus (${reachable.count} on the attract screen)`);
+
+  // Tab is what a link-browsing D-pad does: move the browser's own focus.
+  await page.keyboard.press('Tab');
+  const landed = await page.evaluate(() => {
+    const el = document.activeElement;
+    return !!(el && el.getAttribute && (el.getAttribute('data-act') || el.getAttribute('data-pick')));
+  });
+  expect(landed, 'focus lands on a control rather than the page body');
+
+  // A div with role=button is not activated by Enter the way a real button is,
+  // so the app has to do it - exactly once.
+  await page.keyboard.press('Enter');
+  expect(await at() === 'setupCount', 'Enter on a focused control fires once, not twice');
+
+  await page.evaluate(() => { document.querySelector('[data-pick="0"]').focus(); });
+  await page.keyboard.press('Enter');
+  expect(await page.evaluate(() => setup.count) === 2 && await at() === 'setupName',
+    'a deliberately focused control commits on one press, unlike a pointer tap');
+
+  // Re-rendering replaces every node; without restoring focus, link browsing
+  // would be thrown back to the top of the screen after every press.
+  await page.evaluate(() => { handle('OK'); handle('OK'); });
+  const kept = await page.evaluate(() => {
+    const first = document.querySelector('[data-pick]');
+    first.focus();
+    const before = first.getAttribute('data-pick');
+    render();
+    const now = document.activeElement;
+    return !!(now && now.getAttribute && now.getAttribute('data-pick') === before);
+  });
+  expect(kept, 'focus survives a re-render');
+
+  // The pointer model must be untouched by any of this.
+  await page.evaluate(() => { while (currentScreen() === 'draft') handle('OK'); handle('OK'); });
+  await page.locator('.tile.tappable').first().click();
+  expect(await at() === 'wager', 'a mouse click still selects rather than committing');
+
+  expect(errs.length === 0, `no page errors under link browsing ${JSON.stringify(errs)}`);
+  await ctx.close();
+}
+
 // ----------------------------------------------------------- other screens
 
 // The fit checks above all measure a question. The category draft is a
