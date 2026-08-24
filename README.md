@@ -115,6 +115,34 @@ While the field has focus, every other key belongs to it: arrows move the caret
 or the keyboard's own selection, and Backspace deletes. Typing never re-renders
 the screen, because rebuilding it would drop focus and dismiss the keyboard.
 
+### Link browsing
+
+Samsung televisions offer a choice between *pointer browsing*, where the D-pad
+drives a cursor, and *link browsing*, where it walks the browser's own focus
+between focusable elements. Link browsing found nothing here: every control was
+a `div` or `span` with `role="button"`, which is announced as a button but is
+not focusable, so the TV fell back to selecting the single element that had a
+click handler — the block wrapping the entire screen.
+
+Every control now carries `tabindex="0"` and a focus ring as loud as the cursor
+highlight, since under this model the ring is the only thing showing where you
+are. Two consequences worth knowing:
+
+- **`role="button"` does not make Enter work.** Only real buttons and links get
+  a synthesised click from Enter; a focusable `div` gets nothing. The app
+  activates the focused control itself, and suppresses any click a TV
+  synthesises for the same keypress, so it fires once either way.
+- **A focused control commits on one press**, where a pointer tap still takes
+  two. The two-tap arming exists to protect against a stray tap or a nudged
+  pointer; a control you deliberately focused and pressed OK on is neither.
+  Keyboard-driven clicks are distinguishable because they carry no pointer
+  detail.
+
+That makes three input models coexisting: cursor (plain D-pad), pointer (Magic
+Remote, mouse, finger), and focus (link browsing). Focus is restored after each
+re-render, or link browsing would be thrown back to the top of the screen after
+every press.
+
 ### Mouse and touch
 
 The remote is the primary input; a mouse or a finger is a supported second one,

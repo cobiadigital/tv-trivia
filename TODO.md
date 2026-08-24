@@ -25,6 +25,8 @@
       touch control bar and a two-tap select-then-commit on every target
 - [x] Number keys as a direct shortcut on every screen with a list, for remotes
       whose D-pad drives a pointer instead of sending arrow keys
+- [x] Focusable controls with a visible focus ring, for Samsung's link browsing
+      — a third input model alongside cursor and pointer
 - [x] A last-input readout on the title and setup screens, reporting taps as
       well as keys, so a device can say what it actually delivered
 - [x] Names typed into a real text field, so the TV's own keyboard does the work

@@ -10,7 +10,7 @@
 
 // Kept in step with package.json by a test, since nothing at runtime can read
 // package.json to derive it.
-var VERSION = '0.1.13';
+var VERSION = '0.1.14';
 
 var TUNING = {
   speedBaseSeconds: 45,        // open question in the design doc: try 45 vs 60
@@ -753,7 +753,7 @@ function hintBar(pairs) {
   var html = pairs.map(function (p) {
     var chips = hintChips(p[0]).map(function (c) {
       if (!c[1]) return '<span class="hint-key dead">' + esc(c[0]) + '</span>';
-      return '<span class="hint-key" role="button" data-act="' + c[1] + '">' +
+      return '<span class="hint-key" role="button" tabindex="0" data-act="' + c[1] + '">' +
         esc(c[0]) + '</span>';
     }).join('');
     return '<span class="hint">' + chips +
@@ -841,7 +841,7 @@ function optionRows(q, opts) {
     if (pickable) cls += ' tappable';
 
     html += '<div class="' + cls + '"' +
-      (pickable ? ' role="button" data-pick="' + i + '"' : '') +
+      (pickable ? ' role="button" tabindex="0" data-pick="' + i + '"' : '') +
       '><span class="letter">' + letters[i] + '</span>' + text + '</div>';
   }
   return html + '</div>';
@@ -853,6 +853,7 @@ function render() {
   layoutShell();
   shrinkToFit();
   fitToScreen();
+  restoreFocus();
 }
 
 // The density steps above are coarse and bottom out after three of them, at
@@ -988,7 +989,7 @@ function view() {
       var tiles = '';
       for (var n = 2; n <= 4; n++) {
         tiles += '<div class="tile tappable' + (setup.count === n ? ' sel' : '') +
-          '" role="button" data-pick="' + (n - 2) + '">' + n + '</div>';
+          '" role="button" tabindex="0" data-pick="' + (n - 2) + '">' + n + '</div>';
       }
       return versionTag() +
         '<div class="eyebrow">Setup</div><h1>How many playing?</h1>' +
@@ -1030,7 +1031,7 @@ function view() {
         var dead = d.vetoed.indexOf(id) !== -1;
         tiles += '<div class="tile wide' + (dead ? ' gone' : ' tappable') +
           (i === d.cursor && !dead ? ' sel' : '') + '"' +
-          (dead ? '' : ' role="button" data-pick="' + i + '"') +
+          (dead ? '' : ' role="button" tabindex="0" data-pick="' + i + '"') +
           '>' + esc(bank.catName[id]) + '</div>';
       }
       return statusBar(['Veto <b>' + (d.vetoerTurn + 1) + '</b> of <b>' + d.vetoes + '</b>']) +
@@ -1068,7 +1069,7 @@ function view() {
         var isCursor = !spent && p.ledger[S.wagerCursor] === v;
         tiles += '<div class="tile' + (spent ? ' spent' : ' tappable') +
           (isCursor ? ' sel' : '') + '"' +
-          (spent ? '' : ' role="button" data-pick="' + i + '"') +
+          (spent ? '' : ' role="button" tabindex="0" data-pick="' + i + '"') +
           '>' + v + '</div>';
       }
       var value = p.ledger[S.wagerCursor];
@@ -1254,7 +1255,7 @@ function view() {
       var sd = S.sudden;
       var tiles = sd.players.map(function (i, n) {
         return '<div class="tile wide tappable' + (n === sd.cursor ? ' sel' : '') +
-          '" role="button" data-pick="' + n + '">' + esc(S.players[i].name) + '</div>';
+          '" role="button" tabindex="0" data-pick="' + n + '">' + esc(S.players[i].name) + '</div>';
       }).join('');
       return '<div class="eyebrow">Sudden death · ' + esc(bank.catName[sd.categoryId]) + '</div>' +
         '<div class="question">' + esc(sd.q.q) + '</div>' +
@@ -1308,6 +1309,69 @@ function actionFor(e) {
 }
 
 function wrap(i, n) { return ((i % n) + n) % n; }
+
+// ------------------------------------------------------------------- focus
+
+// Three input models have to coexist. A plain D-pad moves our own cursor and
+// OK acts on it. A pointer (the LG Magic Remote, a mouse, a finger) clicks.
+// Samsung's link browsing moves the browser's own focus between focusable
+// elements and OK activates whatever is focused - which needs real focusable
+// controls, and needs us to keep out of the way once one of them has focus.
+var focusKey = null;      // what was focused before the last render
+
+function controlKey(el) {
+  if (!el || !el.getAttribute) return null;
+  var act = el.getAttribute('data-act');
+  if (act) return 'act:' + act;
+  var pick = el.getAttribute('data-pick');
+  if (pick !== null && pick !== '') return 'pick:' + pick;
+  return null;
+}
+
+function focusedControl() {
+  return controlKey(document.activeElement) ? document.activeElement : null;
+}
+
+// When the focus model is driving, OK acts on the focused control at once:
+// it was deliberately chosen, so the two-tap arming that protects against a
+// stray tap has nothing to protect against here.
+var lastKeyActivation = 0;
+
+function activateControl(el) {
+  lastKeyActivation = Date.now();
+  var act = el.getAttribute('data-act');
+  if (act) { reportInput('select ' + act); handle(act); return; }
+  var pick = el.getAttribute('data-pick');
+  if (pick !== null && pick !== '') {
+    reportInput('select #' + (Number(pick) + 1));
+    handlePick(Number(pick), true);
+  }
+}
+
+// Re-rendering replaces every node, so link browsing would be thrown back to
+// the top of the screen after each press. Put focus back on the equivalent
+// control. Only ever does anything if something was focused already, so the
+// cursor and pointer models never sprout a focus ring they did not ask for.
+function restoreFocus() {
+  if (!focusKey) return;
+  var screen = document.getElementById('screen');
+  if (!screen || !screen.querySelectorAll) return;
+
+  var controls = screen.querySelectorAll('[data-act],[data-pick]');
+  var fallback = null;
+  for (var i = 0; i < controls.length; i++) {
+    var key = controlKey(controls[i]);
+    if (key === focusKey) { focusSafely(controls[i]); return; }
+    if (!fallback) fallback = controls[i];
+  }
+  if (fallback) focusSafely(fallback);
+}
+
+function focusSafely(el) {
+  if (!el || !el.focus) return;
+  try { el.focus({ preventScroll: true }); }
+  catch (e) { el.focus(); }
+}
 
 // The LG Magic Remote drives an on-screen pointer with its D-pad, and webOS
 // eats the arrow keys before the page ever sees them. Its number buttons may
@@ -1641,7 +1705,8 @@ function renderSetup() {
   layoutShell();
   shrinkToFit();
   fitToScreen();
-  focusNameField();
+  if (setup && setup.screen === 'setupName') focusNameField();
+  else restoreFocus();
 }
 
 // Focusing the field is what summons the TV's built-in keyboard, so it is the
@@ -1809,22 +1874,22 @@ var lastPick = null;
 // `sig` identifies what is actually on screen - the player whose wager this is,
 // the question being answered. Without it an arming could survive a turn
 // change, and the next player's first tap would commit instead of select.
-function armed(index, sig) {
+function armed(index, sig, immediate) {
   var key = currentScreen() + '|' + index + '|' + (sig === undefined ? '' : sig);
-  var hit = (lastPick === key);
+  var hit = immediate || (lastPick === key);
   lastPick = key;
   return hit;
 }
 
-function handlePick(index) {
-  if (!S) { pickSetup(index); return; }
+function handlePick(index, immediate) {
+  if (!S) { pickSetup(index, immediate); return; }
 
   switch (S.screen) {
     case 'draft': {
       var d = S.draft;
       if (d.vetoed.indexOf(d.pool[index]) !== -1) return;
       d.cursor = index;
-      if (!armed(index, d.vetoerTurn)) break;
+      if (!armed(index, d.vetoerTurn, immediate)) break;
       snapshot();
       applyVeto();
       break;
@@ -1836,7 +1901,7 @@ function handlePick(index) {
       var slot = p.ledger.indexOf(value);
       if (slot === -1) return;                     // already spent
       S.wagerCursor = slot;
-      if (!armed(index, currentPlayerIdx())) break;
+      if (!armed(index, currentPlayerIdx(), immediate)) break;
       snapshot();
       beginQuestion(value);
       break;
@@ -1854,7 +1919,7 @@ function handlePick(index) {
       }
       if (index >= q.revealed) return;
       q.sel = index;
-      if (!armed(index, q.id)) break;
+      if (!armed(index, q.id, immediate)) break;
       snapshot();
       lockAnswer(index);
       break;
@@ -1865,7 +1930,7 @@ function handlePick(index) {
       var at = st.alive.indexOf(index);
       if (at === -1) return;
       st.cursor = at;
-      if (!armed(index, S.q.id)) break;
+      if (!armed(index, S.q.id, immediate)) break;
       snapshot();
       resolveSteal(index);
       break;
@@ -1875,7 +1940,7 @@ function handlePick(index) {
       var sd = S.sudden;
       if (!sd.revealed) return;
       sd.cursor = index;
-      if (!armed(index, sd.q.id)) break;
+      if (!armed(index, sd.q.id, immediate)) break;
       snapshot();
       S.players[sd.players[index]].score += 1;
       S.screen = 'scoreboard';
@@ -1889,9 +1954,9 @@ function handlePick(index) {
   render();
 }
 
-function pickSetup(index) {
+function pickSetup(index, immediate) {
   if (!setup || setup.screen !== 'setupCount') return;
-  var confirm = armed(index);
+  var confirm = armed(index, undefined, immediate);
   setup.count = index + 2;
   if (confirm) { handleSetup('OK'); return; }
   renderSetup();
@@ -1915,6 +1980,19 @@ document.addEventListener('keydown', function (e) {
     return;
   }
 
+  // A div or span with tabindex and role="button" is focusable but is NOT
+  // activated by Enter the way a real button is - no click is synthesised - so
+  // activate it here. Some television browsers do synthesise one anyway, which
+  // the click handler guards against rather than acting twice.
+  if (a === 'OK') {
+    var control = focusedControl();
+    if (control) {
+      e.preventDefault();
+      activateControl(control);
+      return;
+    }
+  }
+
   var digit = digitFor(e);
   if (digit !== null) {
     e.preventDefault();
@@ -1936,10 +2014,19 @@ document.addEventListener('input', function (e) {
   }
 });
 
+document.getElementById('screen').addEventListener('focusin', function (e) {
+  var key = controlKey(e.target);
+  if (key) focusKey = key;
+});
+
 /* Delegated from #screen rather than document: iOS is unreliable about
    bubbling clicks on non-interactive elements as far as the document, but a
    real element ancestor gets them, and every target lives inside this one. */
 document.getElementById('screen').addEventListener('click', function (e) {
+  // A click with no pointer behind it, arriving right after a keyboard
+  // activation, is that same activation coming round a second time.
+  if (!e.detail && Date.now() - lastKeyActivation < 500) return;
+
   var node = e.target;
   while (node && node !== document.body) {
     if (node.getAttribute) {
@@ -1948,8 +2035,9 @@ document.getElementById('screen').addEventListener('click', function (e) {
 
       var pick = node.getAttribute('data-pick');
       if (pick !== null && pick !== '') {
-        reportInput('tap #' + (Number(pick) + 1));
-        handlePick(Number(pick));
+        var byKey = !e.detail;
+        reportInput((byKey ? 'select #' : 'tap #') + (Number(pick) + 1));
+        handlePick(Number(pick), byKey);
         return;
       }
     }
